@@ -13,6 +13,7 @@ class OrderBookIterator(object):
     def read_csv(self, filename):
         orderbooks = csv.reader(filename, delimiter=',')
 
+
     @property
     def bid(self):
         return self._bid
@@ -32,12 +33,11 @@ class OrderBookIterator(object):
         if ask > float(9999999999):
             raise ValueError("Invalid ask")
         self._ask = val
-        
 
 class TradingEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, security_pairs):
+    def __init__(self, filename):
         """
         TradingEnv manages orderbook state, action
         execution, and reward calculation
@@ -46,16 +46,20 @@ class TradingEnv(gym.Env):
         identifier and accompanying data file for training and testing
         """
 
-        for (pair, filename) in security_pairs:
-            self.orderbooks[pair] = OrderBook(filename)
-            self.action_space[pair] = spaces.Dict({
-                positions: spaces.Discrete(3), # buy or sell for t timesteps or wait 1 timestep
-                time: spaces.Box(low=0, high=10, shape=(1,)) # time length to hold
-                })
+        self.orderbook = OrderBookIterator(filename)
+        self.action_space = spaces.Dict({
+            positions: spaces.Discrete(3), # buy or sell for t timesteps or wait 1 timestep
+            time: spaces.Box(low=0, high=10, shape=(1,)) # time length to hold
+            })
         
     def _step(self, action):
-        
+        return
     def _reset(self):
-        
+        return
+
     def _render(self, mode='human', close=False):
-        
+        return
+
+if __name__ == '__main__':
+    filename = "./data/GDAX.ETHUSD.2017-12-22.csv"
+    t = TradingEnv(filename)
