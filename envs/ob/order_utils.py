@@ -1,3 +1,4 @@
+from functools import total_ordering
 from queue import PriorityQueue
 
 
@@ -9,7 +10,7 @@ class PriceLevel(object):
     def __init__(self, price):
         super(PriceLevel, self).__init__()
         self.price = price
-        self.vol = 0
+        self._vol = 0
         self.store = PriorityQueue()
 
     def put(self, order):
@@ -37,6 +38,7 @@ class PriceLevel(object):
         # grab target volume at this price level
         while volume > 0 and not self.is_empty():
             order = self.store.get()
+
             if order.volume >= volume:
                 filled_volume = volume
                 order.volume -= volume
@@ -56,10 +58,26 @@ class PriceLevel(object):
         # return excess volume and all (partially) filled orders
         return volume, filled_orders
 
+    def peek(self):
+        return self.store.queue[0]
+
     def is_empty(self):
         return self.store.empty()
 
+    @property
+    def vol(self):
+        return self._vol
 
+    @vol.setter
+    def vol(self, val):
+        if val < 0 or val is None:
+            raise ValueError("Invalid vol")
+        self._vol = val
+
+    def __str__(self):
+        return "{}, {}, {}".format(self.price, list(map(lambda x: x.__)))
+
+@total_ordering
 class Order(object):
     """
     An order class that prioritizes
@@ -98,5 +116,11 @@ class Order(object):
         if val < 0 or val is None:
             raise ValueError("Invalid volume")
 
-    def __cmp__(self, other):
+    def __lt__(self, other):
         return self.timestamp < other.timestamp
+
+    def __eq__(self, other):
+        return self.timestamp == other.timestamp
+
+    def __str__(self):
+        return "{}, {}, {}".format(self.timestamp, self.price, self.volume)

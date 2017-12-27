@@ -1,4 +1,4 @@
-from datatime import datetime as dt
+from datetime import datetime as dt
 from .order_utils import Order, PriceLevel
 from .orderbook_wrapper import OrderBookWrapper
 
@@ -152,6 +152,8 @@ class OrderBook(OrderBookWrapper):
                     break
 
             if order.volume > 0:
+                if not price in self._bid_limits:
+                    self._bid_limits[price] = PriceLevel(price)
                 self._bid_limits[price].put(order)
 
         elif side == "ASK":
@@ -167,6 +169,8 @@ class OrderBook(OrderBookWrapper):
                     break
 
             if order.volume > 0:
+                if not price in self._ask_limits:
+                    self._ask_limits[price] = PriceLevel(price)
                 self._ask_limits[price].put(order)
 
         for o in filled_orders:
