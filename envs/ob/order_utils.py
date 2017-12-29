@@ -48,8 +48,8 @@ class PriceLevel(object):
             else:
                 self.total_vol -= order.volume
                 filled_volume = order.volume
-                order.volume = 0
                 volume -= order.volume
+                order.volume = 0
 
             if order.volume > 0:
                 self.store.put(order)
@@ -59,7 +59,7 @@ class PriceLevel(object):
                                        filled_volume))
 
         # return excess volume and all (partially) filled orders
-        return volume, filled_orders
+        return volume, filled_orders, self.total_vol
 
     def peek(self):
         return self.store.queue[0]

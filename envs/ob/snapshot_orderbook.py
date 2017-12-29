@@ -1,5 +1,4 @@
 from .orderbook import OrderBook
-from .order_utils import Order, PriceLevel
 
 
 class SnapshotOrderBook(OrderBook):
@@ -30,16 +29,10 @@ class SnapshotOrderBook(OrderBook):
         bids, bid_vols, asks, ask_vols = snapshot
 
         for inx, bid in enumerate(bids):
-            if bid not in self._bid_limits:
-                self._bid_limits[bid] = PriceLevel(bid)
-            order = Order(inx, bid, bid_vols[inx])
-            self._bid_limits[bid].put(order)
+            self.limit("BID", bid, bid_vols[inx])
 
         for inx, ask in enumerate(asks):
-            if ask not in self._ask_limits:
-                self._ask_limits[ask] = PriceLevel(ask)
-            order = Order(inx, ask, ask_vols[inx])
-            self._ask_limits[ask].put(order)
+            self.limit("ASK", ask, ask_vols[inx])
 
     def process_next(self, snapshot):
         """

@@ -1,3 +1,4 @@
+import numpy as np
 from datetime import datetime as dt
 from .order_utils import Order, PriceLevel
 from .orderbook_interface import OrderBookInterface
@@ -31,6 +32,39 @@ class OrderBook(OrderBookInterface):
         self.symbol = symbol
         self.delta = delta
 
+    def refresh(self):
+        """
+        Refreshes state of orderbook included all features
+        """
+        self.bid = max(self._bid_limits.keys()) if len(
+            self._bid_limits.keys()) > 0 else 0
+        self.ask = min(self._ask_limits.keys()) if len(
+            self._ask_limits.keys()) > 0 else float(9999999999)
+
+        self.bid_vol = self._bid_limits[self.bid].total_vol if len(
+            self._bid_limits.keys()) > 0 else 0
+        self.ask_vol = self._ask_limits[self.ask].total_vol if len(
+            self._ask_limits.keys()) > 0 else 0
+
+        self.spread = self.ask - self.bid
+        self.midquote = (self.ask + self.bid) / 2.0
+
+        self.imbalance = -np.log(self.bid_vol / self.ask_vol) if len(
+            self._bid_limits.keys()) > 0 and len(
+            self._ask_limits.keys()) > 0 else 0
+
+        total_bid_vol = sum(list(map(
+            lambda lvl: lvl.total_vol, self._bid_limits.values())))
+        total_ask_vol = sum(list(map(
+            lambda lvl: lvl.total_vol, self._ask_limits.values())))
+        self.misbalance = -(total_ask_vol - total_bid_vol)
+
+        smart_bid = self.bid * (1.0 / self.bid_vol) if len(
+            self._bid_limits.keys()) > 0 else 0
+        smart_ask = self.ask * (1.0 / self.ask_vol) if len(
+            self._ask_limits.keys()) > 0 else 0
+        self.smart_price = (smart_bid + smart_ask) / 2.0
+
     def market(self, side, volume):
         """
         Market order function
@@ -55,11 +89,11 @@ class OrderBook(OrderBookInterface):
         if side == "BID":
             for key in self._ask_limits.keys():
                 level = self._ask_limits[key]
-                volume, filled = level.get(volume)
+                volume, filled, remaining_vol = level.get(volume)
                 filled_orders = filled_orders + filled
 
                 # if leftover volume, we've cleared the price level's volume
-                if volume > 0:
+                if volume > 0 or remaining_vol == 0:
                     del self._ask_limits[key]
                 else:
                     break
@@ -67,11 +101,11 @@ class OrderBook(OrderBookInterface):
         elif side == "ASK":
             for key in self._bid_limits.keys():
                 level = self._bid_limits[key]
-                volume, filled = level.get(volume)
+                volume, filled, remaining_vol = level.get(volume)
                 filled_orders = filled_orders + filled
 
                 # if leftover volume, we've cleared the price level's volume
-                if volume > 0:
+                if volume > 0 or remaining_vol == 0:
                     del self._bid_limits[key]
                 else:
                     break
@@ -115,11 +149,12 @@ class OrderBook(OrderBookInterface):
         if side == "BID":
             for key in [i for i in self._ask_limits.keys() if i <= price]:
                 level = self._ask_limits[key]
-                order.volume, filled = level.get(order.volume)
+                order.volume, filled, remaining_vol = level.get(order.volume)
+                print(order.volume)
                 filled_orders = filled_orders + filled
 
                 # if leftover volume, we've cleared the price level's volume
-                if order.volume > 0:
+                if order.volume > 0 or remaining_vol == 0:
                     del self._ask_limits[key]
                 else:
                     break
@@ -132,11 +167,11 @@ class OrderBook(OrderBookInterface):
         elif side == "ASK":
             for key in [i for i in self._bid_limits.keys() if i >= price]:
                 level = self._bid_limits[key]
-                order.volume, filled = level.get(order.volume)
+                order.volume, filled, remaining_vol = level.get(order.volume)
                 filled_orders = filled_orders + filled
 
                 # if leftover volume, we've cleared the price level's volume
-                if order.volume > 0:
+                if order.volume > 0 or remaining_vol == 0:
                     del self._bid_limits[key]
                 else:
                     break
@@ -147,15 +182,15 @@ class OrderBook(OrderBookInterface):
                 self._ask_limits[price].put(order)
 
         for o in filled_orders:
-            print("ooo : MARKETABLE | sym = {}, side = {}, add_ts = {}"
-                  ", trade_ts = {}, price = {}, vol = {}".format(self.symbol,
-                                                                 side,
-                                                                 o.timestamp,
-                                                                 dt.now(),
-                                                                 o.price,
-                                                                 o.volume))
+            print("ooo : MARKETABLE | sym = {}, side = {}, add_ts = {}, "
+                  "trade_ts = {}, price = {}, vol = {}".format(self.symbol,
+                                                               side,
+                                                               o.timestamp,
+                                                               dt.now(),
+                                                               o.price,
+                                                               o.volume))
         if order.volume > 0:
-            print("ooo : LIMIT | sym = {}, side = {}, ts = {},"
+            print("ooo : LIMIT | sym = {}, side = {}, ts = {}, "
                   "price = {}, vol = {}".format(self.symbol,
                                                 side,
                                                 order.timestamp,

@@ -1,6 +1,3 @@
-import numpy as np
-
-
 class OrderBookInterface(object):
     """
     A blank orderbook that computes information
@@ -21,47 +18,6 @@ class OrderBookInterface(object):
         self._midquote = 0
         self._bid_limits = {}
         self._ask_limits = {}
-
-    def refresh(self):
-        self.bid = max(self._bid_limits.keys()) if len(
-            self._bid_limits.keys()) > 0 else 0
-        self.ask = min(self._ask_limits.keys()) if len(
-            self._ask_limits.keys()) > 0 else float(9999999999)
-
-        # safety check for when all orders at price level are cleared
-        if self.bid in self._bid_limits:
-            if self._bid_limits[self.bid].total_vol == 0:
-                del self._bid_limits[self.bid]
-                self.bid = 0
-
-        # safety check for when all orders at price level are cleared
-        if self.ask in self._ask_limits:
-            if self._ask_limits[self.ask].total_vol == 0:
-                del self._ask_limits[self.ask]
-                self.ask = float(9999999999)
-
-        self.bid_vol = self._bid_limits[self.bid].total_vol if len(
-            self._bid_limits.keys()) > 0 else 0
-        self.ask_vol = self._ask_limits[self.ask].total_vol if len(
-            self._ask_limits.keys()) > 0 else 0
-
-        self.spread = self.ask - self.bid
-        self.midquote = (self.ask + self.bid) / 2.0
-        self.imbalance = -np.log(self.bid_vol / self.ask_vol) if len(
-            self._bid_limits.keys()) > 0 and len(
-            self._ask_limits.keys()) > 0 else 0
-
-        total_bid_vol = sum(list(map(
-            lambda lvl: lvl.total_vol, self._bid_limits.values())))
-        total_ask_vol = sum(list(map(
-            lambda lvl: lvl.total_vol, self._ask_limits.values())))
-        self.misbalance = -(total_ask_vol - total_bid_vol)
-
-        smart_bid = self.bid * (1.0 / self.bid_vol) if len(
-            self._bid_limits.keys()) > 0 else 0
-        smart_ask = self.ask * (1.0 / self.ask_vol) if len(
-            self._ask_limits.keys()) > 0 else 0
-        self.smart_price = (smart_bid + smart_ask) / 2.0
 
     @property
     def bid(self):
