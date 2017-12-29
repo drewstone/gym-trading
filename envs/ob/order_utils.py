@@ -7,10 +7,11 @@ class PriceLevel(object):
     An abstract class for price
     levels of an orderbook
     """
+
     def __init__(self, price):
         super(PriceLevel, self).__init__()
         self.price = price
-        self._vol = 0
+        self._total_vol = 0
         self.store = PriorityQueue()
 
     def put(self, order):
@@ -22,7 +23,7 @@ class PriceLevel(object):
                             (timestamp, price, volume)
         """
         self.store.put(order)
-        self.vol += order.volume
+        self.total_vol += order.volume
 
     def get(self, volume):
         """
@@ -40,10 +41,12 @@ class PriceLevel(object):
             order = self.store.get()
 
             if order.volume >= volume:
+                self.total_vol -= volume
                 filled_volume = volume
                 order.volume -= volume
                 volume = 0
             else:
+                self.total_vol -= order.volume
                 filled_volume = order.volume
                 order.volume = 0
                 volume -= order.volume
@@ -65,17 +68,19 @@ class PriceLevel(object):
         return self.store.empty()
 
     @property
-    def vol(self):
-        return self._vol
+    def total_vol(self):
+        return self._total_vol
 
-    @vol.setter
-    def vol(self, val):
+    @total_vol.setter
+    def total_vol(self, val):
         if val < 0 or val is None:
             raise ValueError("Invalid vol")
-        self._vol = val
+        self._total_vol = val
 
     def __str__(self):
-        return "{}, {}, {}".format(self.price, list(map(lambda x: x.__)))
+        return "lll : LEVEL | price = {}, total_volume = {}".format(
+            self.price, self.total_vol)
+
 
 @total_ordering
 class Order(object):
@@ -83,6 +88,7 @@ class Order(object):
     An order class that prioritizes
     timestamp for comparison behavior
     """
+
     def __init__(self, timestamp, price, volume):
         super(Order, self).__init__()
         self._timestamp = timestamp
@@ -115,6 +121,7 @@ class Order(object):
     def volume(self, val):
         if val < 0 or val is None:
             raise ValueError("Invalid volume")
+        self._volume = val
 
     def __lt__(self, other):
         return self.timestamp < other.timestamp

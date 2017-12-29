@@ -1,18 +1,19 @@
 from datetime import datetime as dt
 from .order_utils import Order, PriceLevel
-from .orderbook_wrapper import OrderBookWrapper
+from .orderbook_interface import OrderBookInterface
 
 
-class OrderBook(OrderBookWrapper):
+class OrderBook(OrderBookInterface):
     """
-    An orderbook class that inherits an OrderBookWrapper.
+    An orderbook class that inherits an OrderBookInterface.
     The book maintains two dictionaries for two sides of
     the book. Each side is a (float, PriceLevel) dict.
 
     Extends:
-        OrderBookWrapper
+        OrderBookInterface
     """
-    def __init__(self, symbol, snapshot=None):
+
+    def __init__(self, symbol, delta=0):
         """
         Initializes a new OrderBook
 
@@ -23,40 +24,12 @@ class OrderBook(OrderBookWrapper):
             symbol {String} -- symbol of particular orderbook
 
         Keyword Arguments:
-            snapshot {Tupe} -- Tuple containing bid/ask price/vol data
-                               (default: {None})
+            delta {number} -- for relative/absolute orderbook modes
+                                (NOT IMPLEMENTED)
         """
         super(OrderBook, self).__init__()
         self.symbol = symbol
-        self.delta = 0
-
-        if snapshot:
-            self.set_snapshot(snapshot)
-            self.refresh()
-
-    def set_snapshot(self, snapshot):
-        """
-        Reconstructs orderbook state from a given snapshot
-
-        To be used across longer time-span orderbook datasets
-        such as 3 second or minutely orderbook snapshots
-
-        Arguments:
-            snapshot {Tuple} -- Tuple containing bid/ask price/vol data
-        """
-        bids, bid_vols, asks, ask_vols = snapshot
-
-        for inx, bid in enumerate(bids):
-            if not bid in self._bid_limits:
-                self._bid_limits[bid] = PriceLevel(bid)
-            order = Order(inx, bid, bid_vols[inx])
-            self._bid_limits[bid].put(order)
-
-        for inx, ask in enumerate(asks):
-            if not ask in self._ask_limits:
-                self._ask_limits[ask] = PriceLevel(ask)
-            order = Order(inx, ask, ask_vols[inx])
-            self._ask_limits[ask].put(order)
+        self.delta = delta
 
     def market(self, side, volume):
         """
@@ -152,7 +125,7 @@ class OrderBook(OrderBookWrapper):
                     break
 
             if order.volume > 0:
-                if not price in self._bid_limits:
+                if price not in self._bid_limits:
                     self._bid_limits[price] = PriceLevel(price)
                 self._bid_limits[price].put(order)
 
@@ -169,21 +142,25 @@ class OrderBook(OrderBookWrapper):
                     break
 
             if order.volume > 0:
-                if not price in self._ask_limits:
+                if price not in self._ask_limits:
                     self._ask_limits[price] = PriceLevel(price)
                 self._ask_limits[price].put(order)
 
         for o in filled_orders:
             print("ooo : MARKETABLE | sym = {}, side = {}, add_ts = {}"
                   ", trade_ts = {}, price = {}, vol = {}".format(self.symbol,
+                                                                 side,
                                                                  o.timestamp,
                                                                  dt.now(),
                                                                  o.price,
                                                                  o.volume))
+        if order.volume > 0:
+            print("ooo : LIMIT | sym = {}, side = {}, ts = {},"
+                  "price = {}, vol = {}".format(self.symbol,
+                                                side,
+                                                order.timestamp,
+                                                order.price,
+                                                order.volume))
 
-        print("ooo : LIMIT | sym = {}, side = {}, ts = {},"
-              "price = {}, vol = {}".format(self.symbol,
-                                            side,
-                                            order.timestamp,
-                                            order.price,
-                                            order.volume))
+        # refresh orderbook state
+        self.refresh()
