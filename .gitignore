@@ -1,4 +1,4 @@
-.DS_STORE/
-__pycache__/
+.DS_STORE
+__pycache__
 data/*.csv
 .cache/

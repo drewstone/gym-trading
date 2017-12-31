@@ -1,17 +1,14 @@
-import sys
+from __future__ import absolute_import
+
 import time
 from datetime import datetime as dt
-sys.path.append('../')
 
-try:
-    import gym_trading as gt
-    from gt.envs.ob.order_utils import Order, PriceLevel
-    from g.envs.ob.orderbook import OrderBook
-except Exception as e:
-    import gym_trading as gt
-    Order = gt.envs.ob.order_utils.Order
-    PriceLevel = gt.envs.ob.order_utils.PriceLevel
-    OrderBook = gt.envs.ob.orderbook.OrderBook
+import sys
+sys.path.append('..')
+
+from envs.ob.order_utils import Order, PriceLevel
+from envs.ob.orderbook import OrderBook
+
 
 
 def test_order():

@@ -100,7 +100,7 @@ class TradingEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-if __name__ == '__main__':
-    filename = "./data/GDAX.ETHUSD.2017-12-22.csv"
-    t = TradingEnv(filename)
-    print(t.orderbook.bid)
+# if __name__ == '__main__':
+#     filename = "./data/GDAX.ETHUSD.2017-12-22.csv"
+#     t = TradingEnv(filename)
+#     print(t.orderbook.bid)

@@ -5,10 +5,12 @@ class OrderBookInterface(object):
     sources: manual & automatic
     """
 
+    error_ask = float(9999999999)
+
     def __init__(self):
         super(OrderBookInterface, self).__init__()
         self._bid = 0
-        self._ask = float(9999999999)
+        self._ask = self.error_ask
         self._ask_vol = 0
         self._bid_vol = 0
         self._spread = 0
@@ -25,7 +27,7 @@ class OrderBookInterface(object):
 
     @bid.setter
     def bid(self, val):
-        if val > float(9999999999) or val < 0 or val is None:
+        if val > self.error_ask or val < 0 or val is None:
             raise ValueError("Invalid bid")
         self._bid = float(val)
 
@@ -35,7 +37,7 @@ class OrderBookInterface(object):
 
     @ask.setter
     def ask(self, val):
-        if val > float(9999999999) or val < 0 or val is None:
+        if val > self.error_ask or val < 0 or val is None:
             raise ValueError("Invalid ask")
         self._ask = float(val)
 
