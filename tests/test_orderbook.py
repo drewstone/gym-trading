@@ -1,14 +1,7 @@
-from __future__ import absolute_import
-
 import time
 from datetime import datetime as dt
-
-import sys
-sys.path.append('..')
-
-from envs.ob.order_utils import Order, PriceLevel
-from envs.ob.orderbook import OrderBook
-
+from ob.order_utils import Order, PriceLevel
+from ob.orderbook import OrderBook
 
 
 def test_order():

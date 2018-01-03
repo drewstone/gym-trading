@@ -22,7 +22,7 @@ class OrderBook(OrderBookInterface):
         of live and snapshotted data across a specific symbol
 
         Arguments:
-            symbol {string} -- symbol of particular orderbook
+            symbol {str} -- symbol of particular orderbook
 
         Keyword Arguments:
             delta {number} -- for relative/absolute orderbook modes
@@ -75,7 +75,7 @@ class OrderBook(OrderBookInterface):
         instead, use "limit" function for marketable limit orders.
 
         Arguments:
-            side {string} -- side of orderbook to place order
+            side {str} -- side of orderbook to place order
             volume {float} -- volume of order
 
         Raises:
@@ -132,7 +132,7 @@ class OrderBook(OrderBookInterface):
         to the corresponding side of the book.
 
         Arguments:
-            side {string} -- side of the book
+            side {str} -- side of the book
             price {float} -- price of limit order
             volume {float} -- volume of limit order
 

@@ -67,7 +67,7 @@ class TradingEnv(gym.Env):
 
             self.state = self.orderbook.process_order()
 
-                # Game over logic
+            # Game over logic
         try:
             self._prices_history.append(self._data_generator.next())
         except StopIteration:
