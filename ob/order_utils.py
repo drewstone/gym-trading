@@ -1,5 +1,33 @@
 from functools import total_ordering
-from queue import PriorityQueue
+import heapq
+
+
+class PriorityQueue(object):
+
+    def __init__(self, initial=None, key=lambda x: x):
+        self.key = key
+        if initial:
+            self._data = [(key(item), item) for item in initial]
+            heapq.heapify(self._data)
+        else:
+            self._data = []
+
+    def push(self, item):
+        heapq.heappush(self._data, (self.key(item), item))
+
+    def pop(self):
+        return heapq.heappop(self._data)[1]
+
+    def remove(self, item):
+        for i in range(len(self._data)):
+            if self.key(self._data[i][1]) == self.key(item):
+                self._data[i] = self._data[-1]
+                self.pop()
+                heapq.heapify(self._data)
+                return
+
+    def __str__(self):
+        return "{}".format(list(map(lambda o: o[1], self._data)))
 
 
 class PriceLevel(object):
@@ -12,9 +40,9 @@ class PriceLevel(object):
         super(PriceLevel, self).__init__()
         self.price = price
         self._total_vol = 0
-        self.store = PriorityQueue()
+        self.store = PriorityQueue(key=lambda order: order.timestamp)
 
-    def put(self, order):
+    def push(self, order):
         """
         Puts a new order into this price level
 
@@ -22,10 +50,10 @@ class PriceLevel(object):
             order {Order} -- an Order instance
                             (timestamp, price, volume)
         """
-        self.store.put(order)
+        self.store.push(order)
         self.total_vol += order.volume
 
-    def get(self, volume):
+    def pop(self, volume):
         """
         Gets a specified volume from this
         price level to symbolize execution
@@ -38,7 +66,7 @@ class PriceLevel(object):
 
         # grab target volume at this price level
         while volume > 0 and not self.is_empty():
-            order = self.store.get()
+            order = self.store.pop()
 
             if order.volume >= volume:
                 self.total_vol -= volume
@@ -52,7 +80,7 @@ class PriceLevel(object):
                 order.volume = 0
 
             if order.volume > 0:
-                self.store.put(order)
+                self.store.push(order)
 
             filled_orders.append(Order(order.timestamp,
                                        order.price,
@@ -60,6 +88,10 @@ class PriceLevel(object):
 
         # return excess volume and all (partially) filled orders
         return volume, filled_orders, self.total_vol
+
+    def remove(self, order):
+        self.store.remove(order)
+        self.total_vol -= order.volume
 
     def peek(self):
         return self.store.queue[0]
@@ -89,11 +121,23 @@ class Order(object):
     timestamp for comparison behavior
     """
 
-    def __init__(self, timestamp, price, volume):
+    def __init__(self, id_num, price, volume, timestamp, price_level):
         super(Order, self).__init__()
-        self._timestamp = timestamp
+        self._id = id_num
         self._price = price
         self._volume = volume
+        self._timestamp = timestamp
+
+        price_level.push(self)
+        self._price_level = price_level
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def price_level(self):
+        return self._price_level
 
     @property
     def timestamp(self):

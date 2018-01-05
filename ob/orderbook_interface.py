@@ -1,3 +1,6 @@
+from .ordertree import Tree
+
+
 class OrderBookInterface(object):
     """
     A blank orderbook that tracks
@@ -17,8 +20,8 @@ class OrderBookInterface(object):
         self._misbalance = 0
         self._smart_price = 0
         self._midquote = 0
-        self._bid_limits = {}
-        self._ask_limits = {}
+        self._bid_limits = Tree()
+        self._ask_limits = Tree()
 
     def clear(self):
         self._bid = 0
@@ -30,8 +33,8 @@ class OrderBookInterface(object):
         self._misbalance = 0
         self._smart_price = 0
         self._midquote = 0
-        self._bid_limits = {}
-        self._ask_limits = {}
+        self._bid_limits = Tree()
+        self._ask_limits = Tree()
 
     @property
     def bid(self):
