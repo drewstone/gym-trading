@@ -19,12 +19,30 @@ class PriorityQueue(object):
         return heapq.heappop(self._data)[1]
 
     def remove(self, item):
-        for i in range(len(self._data)):
-            if self.key(self._data[i][1]) == self.key(item):
-                self._data[i] = self._data[-1]
-                self.pop()
-                heapq.heapify(self._data)
-                return
+        try:
+            for i in range(len(self._data)):
+                if self.key(self._data[i][1]) == self.key(item):
+                    self._data[i] = self._data[0]
+                    self.pop()
+                    heapq.heapify(self._data)
+                    return
+        except Exception:
+            return
+
+    def contains(self, item, secondary_key=lambda x: x):
+        try:
+            if self._data[0][0] <= self.key(item):
+                for i in range(len(self._data)):
+                    if (secondary_key(self._data[i][1]) == secondary_key(item)
+                            and self._data[i][0] == self.key(item)):
+                        return True
+
+            return False
+        except Exception:
+            return False
+
+    def __len__(self):
+        return len(self._data)
 
     def __str__(self):
         return "{}".format(list(map(lambda o: o[1], self._data)))
@@ -61,7 +79,6 @@ class PriceLevel(object):
         Arguments:
             volume {float} -- volume to be executed/removed
         """
-
         filled_orders = []
 
         # grab target volume at this price level
@@ -70,21 +87,19 @@ class PriceLevel(object):
 
             if order.volume >= volume:
                 self.total_vol -= volume
-                filled_volume = volume
+                # filled_volume = volume
                 order.volume -= volume
                 volume = 0
             else:
                 self.total_vol -= order.volume
-                filled_volume = order.volume
+                # filled_volume = order.volume
                 volume -= order.volume
                 order.volume = 0
 
             if order.volume > 0:
                 self.store.push(order)
 
-            filled_orders.append(Order(order.timestamp,
-                                       order.price,
-                                       filled_volume))
+            filled_orders.append(order.id)
 
         # return excess volume and all (partially) filled orders
         return volume, filled_orders, self.total_vol
@@ -93,8 +108,8 @@ class PriceLevel(object):
         self.store.remove(order)
         self.total_vol -= order.volume
 
-    def peek(self):
-        return self.store.queue[0]
+    def contains(self, order):
+        return self.store.contains(order, secondary_key=lambda x: x.id)
 
     def is_empty(self):
         return self.store.empty()
@@ -108,6 +123,9 @@ class PriceLevel(object):
         if val < 0 or val is None:
             raise ValueError("Invalid vol")
         self._total_vol = val
+
+    def __len__(self):
+        return len(self.store)
 
     def __str__(self):
         return "lll : LEVEL | price = {}, total_volume = {}".format(
@@ -174,4 +192,7 @@ class Order(object):
         return self.timestamp == other.timestamp
 
     def __str__(self):
-        return "{}, {}, {}".format(self.timestamp, self.price, self.volume)
+        return "id: {}, ts: {}, price: {}, vol: {}".format(self.id,
+                                                           self.timestamp,
+                                                           self.price,
+                                                           self.volume)

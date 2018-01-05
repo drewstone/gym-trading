@@ -1,3 +1,4 @@
+from datetime import datetime as dt
 from bintrees import FastRBTree
 from .order_utils import PriceLevel, Order
 
@@ -22,7 +23,7 @@ class Tree(object):
         return self.order_map[id_num]
 
     def create_price(self, price):
-        new_list = PriceLevel()
+        new_list = PriceLevel(price)
         self.price_tree.insert(price, new_list)
         self.price_map[price] = new_list
         if self.max_price is None or price > self.max_price:
@@ -51,13 +52,12 @@ class Tree(object):
     def order_exists(self, id_num):
         return id_num in self.order_map
 
-    def insert_order(self, price, vol, timestamp):
+    def insert_order(self, id_num, price, vol, timestamp=dt.now()):
         if price not in self.price_map:
             self.create_price(price)
-        order = Order(price, vol, timestamp)
-        self.price_map[order.price].append_order(order)
+        order = Order(id_num, price, vol, timestamp, self.price_map[price])
         self.order_map[order.id] = order
-        self.volume += order.qty
+        self.volume += order.volume
 
     def update_order(self, target_order):
         order = self.order_map[target_order.id]
@@ -65,7 +65,7 @@ class Tree(object):
         if target_order.price != order.price:
             # Price changed
             price_level = self.price_map[order.price]
-            price_level.remove_order(order)
+            price_level.remove(order)
             if len(price_level) == 0:
                 self.remove_price(order.price)
             self.insert_order(target_order)
@@ -77,8 +77,9 @@ class Tree(object):
 
     def remove_order_by_id(self, id_num):
         order = self.order_map[id_num]
-        self.volume -= order.qty
-        order.price_level.remove_order(order)
+        self.volume -= order.volume
+        order.price_level.remove(order)
+        print(order.price_level)
         if len(order.price_level) == 0:
             self.remove_price(order.price)
         del self.order_map[id_num]

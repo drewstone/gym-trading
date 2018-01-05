@@ -128,6 +128,8 @@ class OrderBookInterface(object):
 
     def __str__(self):
         value = "\nAsks\t\t\t\t\t\t\tBids"
+
+        # TODO: Make something useful out of this
         for i in range(max(len(self._ask_limits.values()),
                            len(self._bid_limits.values()))):
             value += "\nprice: {} | volume: {}{}price: {} | volume: {}".format(
