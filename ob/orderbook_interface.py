@@ -1,14 +1,26 @@
 class OrderBookInterface(object):
     """
-    A blank orderbook that computes information
-    about the orderbook with a variety of input
-    sources: manual & automatic
+    A blank orderbook that tracks
+    information/state about the book
     """
 
     error_ask = float(9999999999)
 
     def __init__(self):
         super(OrderBookInterface, self).__init__()
+        self._bid = 0
+        self._ask = self.error_ask
+        self._ask_vol = 0
+        self._bid_vol = 0
+        self._spread = 0
+        self._imbalance = 0
+        self._misbalance = 0
+        self._smart_price = 0
+        self._midquote = 0
+        self._bid_limits = {}
+        self._ask_limits = {}
+
+    def clear(self):
         self._bid = 0
         self._ask = self.error_ask
         self._ask_vol = 0
