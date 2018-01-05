@@ -122,3 +122,18 @@ class OrderBookInterface(object):
         if val < 0 or val is None:
             raise ValueError("Invalid volume")
         self._midquote = float(val)
+
+    def __str__(self):
+        value = "\nAsks\t\t\t\t\t\t\tBids"
+        for i in range(max(len(self._ask_limits.values()),
+                           len(self._bid_limits.values()))):
+            value += "\nprice: {} | volume: {}{}price: {} | volume: {}".format(
+                "", "", "", "", "")
+
+        return "\nprice: {} | volume: {}{}price: {} | volume: {}".format(
+            value,
+            self.ask,
+            self.ask_vol,
+            "\t\t\t\t",
+            self.bid,
+            self.bid_vol)

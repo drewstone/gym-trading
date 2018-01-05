@@ -1,13 +1,16 @@
 from envs.simulator import Simulator
 
 
-class MockTrader():
+class MockAgent():
     def __init__(self):
-        pass
+        self.initialized = False
+
+    def initialize(self):
+        self.initialized = True
 
     def grid(self, data):
-        print(data)
-        pass
+        print("Agent: {}".format(data))
+        return data
 
 
 def test_simulator():
@@ -25,10 +28,12 @@ def test_simulator():
     sim = Simulator(options)
 
     sim.start()
-    m = MockTrader()
-    sim.add_trader(m)
+    m = MockAgent()
+    sim.add_agent(m)
 
-    for x in range(10):
-        sim.step()
+    try:
+        sim.start()
+    except Exception as e:
+        raise e
 
     assert 5 == 4

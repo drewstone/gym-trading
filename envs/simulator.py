@@ -23,7 +23,7 @@ class Simulator(SimulatorInterface):
         super(Simulator, self).__init__()
         self.grid_step_length = options["grid_step_length"]
         self.data_format = options["data_format"]
-        self.traders = []
+        self.agents = []
         self.finished = False
 
         self.data_proc = DataProcessor(
@@ -37,7 +37,17 @@ class Simulator(SimulatorInterface):
             delta=options["delta"])
 
     def start(self):
-        self.step()
+
+        # pass event emitter into each trader
+        for i in range(len(self.agents)):
+            agent = self.agents[i]
+            agent.initialize()
+
+        for i in range(10):
+            self.step()
+            for i in range(len(self.agents)):
+                res = self.agents[i].grid(self.orderbook)
+                print(res)
 
     def step(self, count=1):
         data = self.data_proc.next(count)
@@ -84,8 +94,8 @@ class Simulator(SimulatorInterface):
         """
         pass
 
-    def add_trader(self, trader):
-        self.traders.append(trader)
+    def add_agent(self, agent):
+        self.agents.append(agent)
 
     def is_finished(self):
         return self.finished
