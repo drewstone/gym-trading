@@ -55,3 +55,31 @@ def test_tree_removal():
     assert t.volume == 0
     assert not t.order_exists(id_num)
     assert not t.price_exists(price)
+
+
+def test_tree_order_update():
+    t = Tree()
+    price = 5.0
+    volume = 1
+    id_num = 0
+    t.insert_order(id_num, price, volume)
+    t.update_order(id_num, price, volume + 1)
+
+    assert t.volume == 2
+    assert t.price_exists(price)
+    assert t.order_exists(id_num)
+    o = t.get_order(id_num)
+    assert o.timestamp < dt.now()
+    assert o.volume == 2
+    assert o.price == price
+    assert o.id == id_num
+
+    t.update_order(id_num, price + 1, volume)
+    assert t.volume == 1
+    assert not t.price_exists(price)
+    assert t.price_exists(price + 1)
+    o = t.get_order(id_num)
+    assert o.timestamp < dt.now()
+    assert o.volume == 1
+    assert o.price == price + 1
+    assert o.id == id_num

@@ -4,30 +4,6 @@ from ob.order_utils import Order, PriceLevel
 from ob.orderbook import OrderBook
 
 
-def test_order():
-    o = Order(dt.now(), 10, 10)
-    time.sleep(1)
-    o2 = Order(dt.now(), 10, 10)
-    assert o.price == 10
-    assert o.volume == 10
-    assert o < o2
-
-
-def test_pricelevel():
-    level = PriceLevel(10)
-    for i in range(3):
-        timestamp = dt.now()
-        if i == 0:
-            ts = timestamp
-        o = Order(timestamp, 10, 10)
-        time.sleep(1)
-        level.put(o)
-
-    assert level.total_vol == 30
-    assert level.price == 10
-    assert level.peek().timestamp == ts
-
-
 def test_limit_orders():
     ob = OrderBook("ETHUSD")
     for i in range(3):

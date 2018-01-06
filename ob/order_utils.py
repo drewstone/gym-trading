@@ -1,4 +1,5 @@
 from functools import total_ordering
+from datetime import datetime as dt
 import heapq
 
 
@@ -71,7 +72,7 @@ class PriceLevel(object):
         self.store.push(order)
         self.total_vol += order.volume
 
-    def pop(self, volume):
+    def get(self, volume):
         """
         Gets a specified volume from this
         price level to symbolize execution
@@ -87,19 +88,21 @@ class PriceLevel(object):
 
             if order.volume >= volume:
                 self.total_vol -= volume
-                # filled_volume = volume
+                order.filled_volume += volume
                 order.volume -= volume
+
                 volume = 0
             else:
                 self.total_vol -= order.volume
-                # filled_volume = order.volume
+                order.filled_volume += order.volume
                 volume -= order.volume
                 order.volume = 0
 
+            # updates order volume without altering time priority
             if order.volume > 0:
                 self.store.push(order)
 
-            filled_orders.append(order.id)
+            filled_orders.append(order)
 
         # return excess volume and all (partially) filled orders
         return volume, filled_orders, self.total_vol
@@ -112,7 +115,7 @@ class PriceLevel(object):
         return self.store.contains(order, secondary_key=lambda x: x.id)
 
     def is_empty(self):
-        return self.store.empty()
+        return len(self.store) == 0
 
     @property
     def total_vol(self):
@@ -144,10 +147,17 @@ class Order(object):
         self._id = id_num
         self._price = price
         self._volume = volume
+        self._filled_volume = 0
         self._timestamp = timestamp
 
         price_level.push(self)
         self._price_level = price_level
+
+    def update_volume(self, volume):
+        self.price_level.remove(self)
+        self.volume = volume
+        self.timestamp = dt.now()
+        self.price_level.push(self)
 
     @property
     def id(self):
@@ -163,17 +173,13 @@ class Order(object):
 
     @timestamp.setter
     def timestamp(self, val):
-        if val < 0 or val is None:
+        if not isinstance(val, dt):
             raise ValueError("Invalid timestamp")
+        self._timestamp = val
 
     @property
     def price(self):
         return self._price
-
-    @price.setter
-    def price(self, val):
-        if val < 0 or val is None:
-            raise ValueError("Invalid price")
 
     @property
     def volume(self):
@@ -184,6 +190,16 @@ class Order(object):
         if val < 0 or val is None:
             raise ValueError("Invalid volume")
         self._volume = val
+
+    @property
+    def filled_volume(self):
+        return self._filled_volume
+
+    @filled_volume.setter
+    def filled_volume(self, val):
+        if val < 0 or val is None:
+            raise ValueError("Invalid filled_volume")
+        self._filled_volume = val
 
     def __lt__(self, other):
         return self.timestamp < other.timestamp

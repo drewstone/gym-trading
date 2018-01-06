@@ -22,6 +22,44 @@ class Tree(object):
     def get_order(self, id_num):
         return self.order_map[id_num]
 
+    def fill(self, price, volume, pt):
+        filled_orders = []
+
+        while volume > 0:
+            curr = self.min() if pt == "BUY" else self.max()
+
+            # safety check when orderbook has been cleared
+            if curr is None:
+                break
+
+            # non-zero price constitutes marketable limit execution
+            if price > 0:
+                # indicator when bid/ask is lower/higher than price
+                cond = price >= curr if pt == "BUY" else price <= curr
+            else:
+                cond = True
+
+            if cond:
+                pl = self.get_price(curr)
+                volume, fills, leftover_vol = pl.get(volume)
+                filled_orders += fills
+
+                # check if we've executed entire price level
+                if leftover_vol == 0:
+                    self.remove_price(curr)
+            else:
+                # break when current bid/ask is higher/lower than price
+                break
+
+        # remove completely filled orders
+        for order in filled_orders:
+            # update tree volume
+            self.volume -= order.filled_volume
+            if order.volume == 0:
+                del self.order_map[order.id]
+
+        return volume, filled_orders
+
     def create_price(self, price):
         new_list = PriceLevel(price)
         self.price_tree.insert(price, new_list)
@@ -59,27 +97,26 @@ class Tree(object):
         self.order_map[order.id] = order
         self.volume += order.volume
 
-    def update_order(self, target_order):
-        order = self.order_map[target_order.id]
-        original_volume = order.qty
-        if target_order.price != order.price:
+    def update_order(self, id_num, price, volume):
+        order = self.order_map[id_num]
+        original_volume = order.volume
+        if price != order.price:
             # Price changed
             price_level = self.price_map[order.price]
             price_level.remove(order)
             if len(price_level) == 0:
                 self.remove_price(order.price)
-            self.insert_order(target_order)
+            self.insert_order(id_num, price, volume)
             self.volume -= original_volume
         else:
             # Quantity changed
-            order.update_qty(target_order.qty, target_order.price)
-            self.volume += order.qty - original_volume
+            order.update_volume(volume)
+            self.volume += order.volume - original_volume
 
     def remove_order_by_id(self, id_num):
         order = self.order_map[id_num]
         self.volume -= order.volume
         order.price_level.remove(order)
-        print(order.price_level)
         if len(order.price_level) == 0:
             self.remove_price(order.price)
         del self.order_map[id_num]

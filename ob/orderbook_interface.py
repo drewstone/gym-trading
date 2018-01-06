@@ -92,9 +92,7 @@ class OrderBookInterface(object):
 
     @spread.setter
     def spread(self, val):
-        if val < 0:
-            raise ValueError("Invalid volume")
-        self._spread = float(val)
+        self._spread = val
 
     @property
     def misbalance(self):
@@ -122,9 +120,7 @@ class OrderBookInterface(object):
 
     @midquote.setter
     def midquote(self, val):
-        if val < 0 or val is None:
-            raise ValueError("Invalid volume")
-        self._midquote = float(val)
+        self._midquote = val
 
     def __str__(self):
         value = "\nAsks\t\t\t\t\t\t\tBids"

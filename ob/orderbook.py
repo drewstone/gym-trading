@@ -29,41 +29,9 @@ class OrderBook(OrderBookInterface):
                                 (NOT IMPLEMENTED)
         """
         super(OrderBook, self).__init__()
+        self.order_count = 0
         self.symbol = symbol
         self.delta = delta
-
-    def refresh(self):
-        """
-        Refreshes state of orderbook included all features
-        """
-        self.bid = max(self._bid_limits.keys()) if len(
-            self._bid_limits.keys()) > 0 else 0
-        self.ask = min(self._ask_limits.keys()) if len(
-            self._ask_limits.keys()) > 0 else self.error_ask
-
-        self.bid_vol = self._bid_limits[self.bid].total_vol if len(
-            self._bid_limits.keys()) > 0 else 0
-        self.ask_vol = self._ask_limits[self.ask].total_vol if len(
-            self._ask_limits.keys()) > 0 else 0
-
-        self.spread = self.ask - self.bid
-        self.midquote = (self.ask + self.bid) / 2.0
-
-        self.imbalance = -np.log(self.bid_vol / self.ask_vol) if len(
-            self._bid_limits.keys()) > 0 and len(
-            self._ask_limits.keys()) > 0 else 0
-
-        total_bid_vol = sum(list(map(
-            lambda lvl: lvl.total_vol, self._bid_limits.values())))
-        total_ask_vol = sum(list(map(
-            lambda lvl: lvl.total_vol, self._ask_limits.values())))
-        self.misbalance = -(total_ask_vol - total_bid_vol)
-
-        smart_bid = self.bid * (1.0 / self.bid_vol) if len(
-            self._bid_limits.keys()) > 0 else 0
-        smart_ask = self.ask * (1.0 / self.ask_vol) if len(
-            self._ask_limits.keys()) > 0 else 0
-        self.smart_price = (smart_bid + smart_ask) / 2.0
 
     def market(self, side, volume, timestamp=dt.now()):
         """
@@ -84,42 +52,33 @@ class OrderBook(OrderBookInterface):
         if volume == 0:
             raise ValueError("Invalid volume")
 
-        filled_orders = []
         if side == "BID":
-            for key in self._ask_limits.keys():
-                level = self._ask_limits[key]
-                volume, filled, remaining_vol = level.get(volume)
-                filled_orders = filled_orders + filled
-
-                # if leftover volume, we've cleared the price level's volume
-                if volume > 0 or remaining_vol == 0:
-                    del self._ask_limits[key]
-                else:
-                    break
-
+            purchase_type = "BUY"
+            search_tree = self._ask_limits
+            order_tree = self._bid_limits
         elif side == "ASK":
-            for key in self._bid_limits.keys():
-                level = self._bid_limits[key]
-                volume, filled, remaining_vol = level.get(volume)
-                filled_orders = filled_orders + filled
+            purchase_type = "SELL"
+            search_tree = self._bid_limits
+            order_tree = self._ask_limits
+        else:
+            raise ValueError("Invalid orderbook side")
 
-                # if leftover volume, we've cleared the price level's volume
-                if volume > 0 or remaining_vol == 0:
-                    del self._bid_limits[key]
-                else:
-                    break
+        volume, filled_orders = search_tree.fill(0, volume, purchase_type)
 
         # log all filled orders
         for o in filled_orders:
-            print("ooo : MARKET | sym = {}, side = {}, add_ts = {}"
-                  ", trade_ts = {}, price = {}, vol = {}".format(self.symbol,
-                                                                 o.timestamp,
-                                                                 timestamp,
-                                                                 o.price,
-                                                                 o.volume))
+            print("ooo : MARKET | sym = {}, order_id = {} side = {}, "
+                  "add_ts = {}, trade_ts = {}, price = {}, filled = {}".format(
+                      self.symbol,
+                      self.order_count,
+                      o.timestamp,
+                      timestamp,
+                      o.price,
+                      o.filled_volume))
 
         # refresh orderbook state
         self.refresh()
+        self.order_count += 1
 
     def limit(self, side, price, volume, timestamp=dt.now()):
         """
@@ -145,48 +104,23 @@ class OrderBook(OrderBookInterface):
         if price <= 0:
             raise ValueError("Invalid price")
 
-        order = Order(timestamp, price, volume)
-
-        filled_orders = []
         if side == "BID":
-            # iterate over all bid prices below our new order
-            for key in [i for i in self._ask_limits.keys() if i <= price]:
-                level = self._ask_limits[key]
-                order.volume, filled, remaining_vol = level.get(order.volume)
-                filled_orders = filled_orders + filled
-
-                # if leftover volume, we've cleared the price level's volume
-                if order.volume > 0 or remaining_vol == 0:
-                    del self._ask_limits[key]
-                else:
-                    break
-
-            if order.volume > 0:
-                if price not in self._bid_limits:
-                    self._bid_limits[price] = PriceLevel(price)
-                self._bid_limits[price].put(order)
-
+            purchase_type = "BUY"
+            search_tree = self._ask_limits
+            order_tree = self._bid_limits
         elif side == "ASK":
-            # iterate over all ask prices above our new order
-            for key in [i for i in self._bid_limits.keys() if i >= price]:
-                level = self._bid_limits[key]
-                order.volume, filled, remaining_vol = level.get(order.volume)
-                filled_orders = filled_orders + filled
+            purchase_type = "SELL"
+            search_tree = self._bid_limits
+            order_tree = self._ask_limits
+        else:
+            raise ValueError("Invalid orderbook side")
 
-                # if leftover volume, we've cleared the price level's volume
-                if order.volume > 0 or remaining_vol == 0:
-                    del self._bid_limits[key]
-                else:
-                    break
-
-            if order.volume > 0:
-                if price not in self._ask_limits:
-                    self._ask_limits[price] = PriceLevel(price)
-                self._ask_limits[price].put(order)
+        # attempt to execute marketable limit orders
+        volume, filled_orders = search_tree.fill(price, volume, purchase_type)
 
         # log all filled orders
         for o in filled_orders:
-            print("ooo : MARKETABLE | sym = {}, side = {}, add_ts = {}, "
+            print("ooo : TRADE | sym = {}, side = {}, add_ts = {}, "
                   "trade_ts = {}, price = {}, vol = {}".format(self.symbol,
                                                                side,
                                                                o.timestamp,
@@ -195,13 +129,56 @@ class OrderBook(OrderBookInterface):
                                                                o.volume))
 
         # log newly placed limit order
-        if order.volume > 0:
-            print("ooo : LIMIT | sym = {}, side = {}, ts = {}, "
-                  "price = {}, vol = {}".format(self.symbol,
-                                                side,
-                                                order.timestamp,
-                                                order.price,
-                                                order.volume))
+        if volume > 0:
+            order_tree.insert_order(self.order_count, price, volume, timestamp)
+            print("ooo : LIMIT | sym = {}, order_id = {}, side = {}, "
+                  "ts = {}, price = {}, vol = {}".format(self.symbol,
+                                                         self.order_count,
+                                                         side,
+                                                         timestamp,
+                                                         price,
+                                                         volume))
 
         # refresh orderbook state
         self.refresh()
+        self.order_count += 1
+
+    def refresh(self):
+        """
+        Refreshes state of orderbook included all features
+        """
+        try:
+            self.bid = self._bid_limits.max()
+        except Exception:
+            self.bid = 0
+
+        try:
+            self.ask = self._ask_limits.min()
+        except Exception:
+            self.ask = self.error_ask
+
+        try:
+            self.bid_vol = self._bid_limits.get_price(self.bid).total_vol
+        except Exception:
+            self.bid_vol = 0
+
+        try:
+            self.ask_vol = self._ask_limits.get_price(self.ask).total_vol
+        except Exception:
+            self.ask_vol = 0
+
+        try:
+            if self.ask == self.error_ask:
+                raise ValueError
+
+            self.spread = self.ask - self.bid
+        except Exception:
+            self.spread = None
+
+        try:
+            if self.ask == self.error_ask:
+                raise ValueError
+
+            self.midquote = (self.ask + self.bid) / 2.0
+        except Exception:
+            self.midquote = None
