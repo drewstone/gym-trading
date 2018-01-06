@@ -53,11 +53,9 @@ class OrderBook(OrderBookInterface):
         if side == "BID":
             purchase_type = "BUY"
             search_tree = self._ask_limits
-            order_tree = self._bid_limits
         elif side == "ASK":
             purchase_type = "SELL"
             search_tree = self._bid_limits
-            order_tree = self._ask_limits
         else:
             raise ValueError("Invalid orderbook side")
 
