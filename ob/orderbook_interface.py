@@ -7,9 +7,15 @@ class OrderBookInterface(object):
     information/state about the book
     """
 
+    # constant error ask
+    # TODO: Change to enum or something other than number
     error_ask = float(9999999999)
 
     def __init__(self):
+        """Initialize an orderbook with bid/ask order trees
+
+        The orderbook interface represents a blank orderbook state
+        """
         super(OrderBookInterface, self).__init__()
         self._bid = 0
         self._ask = self.error_ask

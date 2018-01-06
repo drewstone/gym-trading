@@ -23,6 +23,22 @@ class Tree(object):
         return self.order_map[id_num]
 
     def fill(self, price, volume, pt):
+        """Fill a certain volume in the order tree
+
+        This function allows interoperability between market
+        and marketable limit order fills. When the price is
+        non-zero, it represents purchasing a specified volume
+        up to a certain price. Otherwise, a zero-valued price
+        represents a market order for a specified volume
+
+        Arguments:
+            price {float} -- price of marketable limit order
+            volume {float} -- volume to attempt to fill
+            pt {str} -- purchase type (BUY or SELL)
+
+        Returns:
+            tuple<float, array> -- remaining volume and all filled orders
+        """
         filled_orders = []
 
         while volume > 0:
@@ -61,6 +77,15 @@ class Tree(object):
         return volume, filled_orders
 
     def create_price(self, price):
+        """Create a new pricelevel in the order tree
+
+        Every order lives in a PriceLevel object, a heap
+        based list containing all orders at that price. This
+        function creates those lists when they don't exist.
+
+        Arguments:
+            price {float} -- price of new price level
+        """
         new_list = PriceLevel(price)
         self.price_tree.insert(price, new_list)
         self.price_map[price] = new_list

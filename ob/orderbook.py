@@ -13,8 +13,7 @@ class OrderBook(OrderBookInterface):
     """
 
     def __init__(self, symbol, delta=0):
-        """
-        Initializes a new OrderBook
+        """Initializes a new OrderBook
 
         The OrderBook has functionality for reconstruction
         of live and snapshotted data across a specific symbol
@@ -32,8 +31,7 @@ class OrderBook(OrderBookInterface):
         self.delta = delta
 
     def market(self, side, volume, timestamp=dt.now()):
-        """
-        Market order function
+        """Submit market orders to orderbook mechanism
 
         The market order function places a market order on
         the corresponding side of the orderbook for a given
@@ -44,8 +42,12 @@ class OrderBook(OrderBookInterface):
             side {str} -- side of orderbook to place order
             volume {float} -- volume of order
 
+        Keyword Arguments:
+            timestamp {datetime} -- time of order (default: {dt.now()})
+
         Raises:
-            ValueError -- Invalid volume error
+            ValueError -- Invalid volume errors (no zero volume orders)
+            ValueError -- Invalid side errors (only BID/ASK)
         """
         if volume == 0:
             raise ValueError("Invalid volume")
@@ -77,8 +79,7 @@ class OrderBook(OrderBookInterface):
         self.order_count += 1
 
     def limit(self, side, price, volume, timestamp=dt.now()):
-        """
-        Limit order/Marketable limit order function
+        """Limit order/Marketable limit order function
 
         Allows for adding limit orders into the orderbook.
         The limit order is checked for whether it is marketable
@@ -90,6 +91,9 @@ class OrderBook(OrderBookInterface):
             side {str} -- side of the book
             price {float} -- price of limit order
             volume {float} -- volume of limit order
+
+        Keyword Arguments:
+            timestamp {datetime} -- time of order (default: {dt.now()})
 
         Raises:
             ValueError -- Invalid volume error
@@ -141,8 +145,13 @@ class OrderBook(OrderBookInterface):
         self.order_count += 1
 
     def refresh(self):
-        """
-        Refreshes state of orderbook included all features
+        """Refreshes state of orderbook included all features
+
+        After each state change to the orderbook, we want to
+        recompute simple stateful properties about the book
+
+        Raises:
+            ValueError -- Invalid ask errors
         """
         try:
             self.bid = self._bid_limits.max()
