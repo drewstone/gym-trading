@@ -1,6 +1,4 @@
-import numpy as np
 from datetime import datetime as dt
-from .order_utils import Order, PriceLevel
 from .orderbook_interface import OrderBookInterface
 
 
@@ -121,12 +119,13 @@ class OrderBook(OrderBookInterface):
         # log all filled orders
         for o in filled_orders:
             print("ooo : TRADE | sym = {}, side = {}, add_ts = {}, "
-                  "trade_ts = {}, price = {}, vol = {}".format(self.symbol,
-                                                               side,
-                                                               o.timestamp,
-                                                               dt.now(),
-                                                               o.price,
-                                                               o.volume))
+                  "trade_ts = {}, price = {}, filled_vol = {}".format(
+                      self.symbol,
+                      side,
+                      o.timestamp,
+                      dt.now(),
+                      o.price,
+                      o.filled_volume))
 
         # log newly placed limit order
         if volume > 0:
