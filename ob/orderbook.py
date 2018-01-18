@@ -78,7 +78,7 @@ class OrderBook(OrderBookInterface):
         self.refresh()
         self.order_count += 1
 
-    def limit(self, side, price, volume, timestamp=dt.now()):
+    def limit(self, side, price, volume, timestamp=dt.now(), cancel=False):
         """Limit order/Marketable limit order function
 
         Allows for adding limit orders into the orderbook.
@@ -130,7 +130,7 @@ class OrderBook(OrderBookInterface):
                       o.filled_volume))
 
         # log newly placed limit order
-        if volume > 0:
+        if volume > 0 and not cancel:
             order_tree.insert_order(self.order_count, price, volume, timestamp)
             print("ooo : LIMIT | sym = {}, order_id = {}, side = {}, "
                   "ts = {}, price = {}, vol = {}".format(self.symbol,
@@ -143,6 +143,34 @@ class OrderBook(OrderBookInterface):
         # refresh orderbook state
         self.refresh()
         self.order_count += 1
+
+    def maker_or_cancel(self, side, price, volume, timestamp=dt.now()):
+        if volume == 0:
+            raise ValueError("Invalid volume")
+
+        if side == "BID":
+            bbool = self._bid_limits.max() >= price
+        elif side == "ASK":
+            bbool = self._ask_limits.min() <= price
+        else:
+            raise ValueError("Invalid orderbook side")
+
+        if bbool:
+            self.limit(side, price, volume, timestamp)
+
+    def immediate_or_cancel(self, side, price, volume, timestamp=dt.now()):
+        if volume == 0:
+            raise ValueError("Invalid volume")
+
+        if side == "BID":
+            bbool = self._ask_limits.min() <= price
+        elif side == "ASK":
+            bbool = self._bid_limits.max() >= price
+        else:
+            raise ValueError("Invalid orderbook side")
+
+        if bbool:
+            self.limit(side, price, volume, timestamp, cancel=True)
 
     def refresh(self):
         """Refreshes state of orderbook included all features
@@ -188,3 +216,13 @@ class OrderBook(OrderBookInterface):
             self.midquote = (self.ask + self.bid) / 2.0
         except Exception:
             self.midquote = None
+
+    def state(self):
+        return {
+            "bid": self.bid,
+            "ask": self.ask,
+            "bid_vol": self.bid_vol,
+            "ask_vol": self.ask_vol,
+            "spread": self.spread,
+            "midquote": self.midquote
+        }

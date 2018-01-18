@@ -1,6 +1,6 @@
-class SimulatorInterface(object):
+class TraderInterface(object):
     def __init__(self):
-        super(SimulatorInterface, self).__init__()
+        super(TraderInterface, self).__init__()
         self._time = 0
         self._pnl = 0
         self._cash = 0

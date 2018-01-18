@@ -1,5 +1,6 @@
 import csv
 import os
+from datetime import datetime, timedelta
 
 
 class DataProcessor(object):
@@ -30,6 +31,8 @@ class DataProcessor(object):
         self.line = 0
         self.time = 0
         self.fields = []
+        self.leftover_order = None
+        self.finished = False
 
         self.initialize()
 
@@ -39,18 +42,37 @@ class DataProcessor(object):
     def curr(self):
         return self.f
 
-    def next(self, count=1):
-        self.line += count
+    def next(self, time_length=1):
+        # self.line += time_length
         entries = []
-        for i in range(count):
-            if self.exchange == "GEMINI":
-                order_entry = OrderEntry(self.parse_gemini(next(self.f)))
-            else:
-                raise ValueError("Invalid exchange")
 
-            entries.append(order_entry)
+        order = None
+        while order is None:
+            order = self.parse_exchange_order(self.exchange)
 
-        return entries if len(entries) > 1 else entries[0]
+        ts = datetime.strptime("{},{},{}".format(
+            order.date, order.time, order.millis), "%Y-%m-%d,%H:%M:%S,%f")
+
+        # set starting time on first line of data
+        if self.line == 1:
+            self.time = ts
+
+        if (self.leftover_order is not None):
+            entries.append(self.leftover_order)
+
+        # retrieve all orders earlier than time horizon
+        while ts < self.time + timedelta(seconds=time_length):
+            entries.append(order)
+            order = self.parse_exchange_order(self.exchange)
+            if order:
+                self.leftover_order = order
+                ts = datetime.strptime("{},{},{}".format(
+                    order.date, order.time, order.millis),
+                    "%Y-%m-%d,%H:%M:%S,%f")
+            self.line += 1
+
+        self.time = ts
+        return entries
 
     def parse_gemini(self, data):
         """Parses gemini raw orderbook data
@@ -117,18 +139,34 @@ class DataProcessor(object):
             {csvreader} -- a generator/iterator over a csv file
         """
         try:
-            self.date_index += 1
             with open(path) as file_handler:
                 while True:
                     yield next(csv.reader(file_handler, delimiter=","))
         except (IOError, OSError):
             print("Error opening / processing file")
         except StopIteration:
+            print("WE ARE HERE")
             # get next available file after previous finishes or finish
             if self.date_index < len(self.dates):
+                self.date_index += 1
                 self.initialize()
             else:
                 self.finished = True
+
+    def parse_exchange_order(self, exchange):
+        if self.exchange == "GEMINI":
+            order = self.parse_gemini(next(self.f))
+            print(order)
+            if len(order["price"]) > 0:
+                return OrderEntry(order)
+        elif self.exchange == "GDAX":
+            raise ValueError("Invalid unimplemented")
+        elif self.exchange == "POLONIEX":
+            raise ValueError("Invalid unimplemented")
+        elif self.exchange == "KRAKEN":
+            raise ValueError("Invalid unimplemented")
+        else:
+            raise ValueError("Invalid exchange")
 
     def initialize(self):
         """Initializes file pointer to current date file
@@ -146,6 +184,7 @@ class DataProcessor(object):
                     "{}/{}".format(self.data_dir, file.name))
                 if self.data_format == "raw":
                     self.fields = next(self.f)
+                    self.line += 1
                 elif self.data_format == "snapshot":
                     continue
                 else:
@@ -167,10 +206,12 @@ class OrderEntry(object):
         self.side = order["side"] if "side" in order else None
         self.price = float(order["price"]) if "price" in order else None
         self.volume = float(order["volume"]) if "volume" in order else None
-        self.avg_price = float(order["avg_price"]) if "avg_price" in order else None
+        self.avg_price = float(
+            order["avg_price"]) if "avg_price" in order else None
 
     def __str__(self):
         return "{}, {}, {}".format(self.side, self.price, self.volume)
+
 
 def num(l):
     return [float(x) for x in l]

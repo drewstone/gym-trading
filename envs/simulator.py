@@ -1,10 +1,9 @@
 from datetime import datetime
 from ob.orderbook import OrderBook
 from ob.processor import DataProcessor
-from .simulator_interface import SimulatorInterface
 
 
-class Simulator(SimulatorInterface):
+class Simulator(object):
     """
     Base simulator for running orderbook
     over simulated and historical data
@@ -36,66 +35,46 @@ class Simulator(SimulatorInterface):
             symbol=options["symbol"],
             delta=options["delta"])
 
-    def start(self):
-
-        # pass event emitter into each trader
-        for i in range(len(self.agents)):
-            agent = self.agents[i]
-            agent.initialize()
-
-        for i in range(10):
-            self.step()
-            for i in range(len(self.agents)):
-                res = self.agents[i].grid(self.orderbook)
-                print(res)
-
-    def step(self, count=1):
-        data = self.data_proc.next(count)
-
+    def step(self, time_length=1):
         if self.data_format == "raw":
-            ts = datetime.strptime("{},{},{}".format(
-                data.date, data.time, data.millis),
-                "%Y-%m-%d,%H:%M:%S,%f")
+            data = self.data_proc.next(time_length)
 
-            if data.side == "buy":
-                if data.order_type == "limit":
-                    self.orderbook.limit("BID", data.price, data.volume, ts)
-                elif data.order_type == "market":
-                    self.orderbook.market("BID", data.price, data.volume, ts)
-            elif data.side == "sell":
-                if data.order_type == "limit":
-                    self.orderbook.limit("ASK", data.price, data.volume, ts)
-                elif data.order_type == "market":
-                    self.orderbook.market("ASK", data.price, data.volume, ts)
-            else:
-                raise ValueError("Invalid order side")
+            for inx, order in enumerate(data):
+                ts = datetime.strptime("{},{},{}".format(
+                    order.date, order.time, order.millis),
+                    "%Y-%m-%d,%H:%M:%S,%f")
+
+                if order.side == "buy":
+                    if order.order_type == "limit":
+                        self.orderbook.limit(
+                            "BID", order.price, order.volume, ts)
+                    elif order.order_type == "market":
+                        self.orderbook.market(
+                            "BID", order.price, order.volume, ts)
+                elif order.side == "sell":
+                    if order.order_type == "limit":
+                        self.orderbook.limit(
+                            "ASK", order.price, order.volume, ts)
+                    elif order.order_type == "market":
+                        self.orderbook.market(
+                            "ASK", order.price, order.volume, ts)
+                else:
+                    raise ValueError("Invalid order side")
         elif self.data_format == "snapshot":
+            data = self.data_proc.next(time_length)
+
             # clear orderbook for new snapshot
-            # TODO: leverage thrown away information somehow?
+            # TODO: leverage thrown away information
             self.orderbook.clear()
 
             ask_prices, ask_volumes, bid_prices, bid_volumes, timestamp = data
+            ts = datetime.strptime("{}".format(
+                timestamp), "%Y-%m-%d %H:%M:%S")
 
             for inx, bid in enumerate(bid_prices):
-                self.orderbook.limit("BID", bid, bid_volumes[inx])
+                self.orderbook.limit("BID", bid, bid_volumes[inx], ts)
 
             for inx, ask in enumerate(ask_prices):
-                self.orderbook.limit("ASK", ask, ask_volumes[inx])
+                self.orderbook.limit("ASK", ask, ask_volumes[inx], ts)
         else:
             raise ValueError("Invalid data format")
-
-    def place(self, side, price, volume):
-        """Places an order to the simulated orderbook
-
-        Arguments:
-            side {str} -- side of orderbook
-            price {float} -- price of order
-            volume {float} -- volume of order
-        """
-        pass
-
-    def add_agent(self, agent):
-        self.agents.append(agent)
-
-    def is_finished(self):
-        return self.finished
