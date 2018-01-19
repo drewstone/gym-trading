@@ -19,6 +19,9 @@ class PriorityQueue(object):
     def pop(self):
         return heapq.heappop(self._data)[1]
 
+    def peek(self):
+        return self._data[0][1]
+
     def remove(self, item):
         try:
             for i in range(len(self._data)):
@@ -42,11 +45,14 @@ class PriorityQueue(object):
         except Exception:
             return False
 
+    def get_items(self):
+        return list(map(lambda o: o[1].volume, self._data))
+
     def __len__(self):
         return len(self._data)
 
     def __str__(self):
-        return "{}".format(list(map(lambda o: o[1], self._data)))
+        return "{}".format(self.get_items())
 
 
 class PriceLevel(object):
@@ -84,28 +90,24 @@ class PriceLevel(object):
 
         # grab target volume at this price level
         while volume > 0 and not self.is_empty():
-            order = self.store.pop()
+            order = self.store.peek()
 
-            if order.volume >= volume:
+            if order.volume > volume:
                 self.total_vol -= volume
                 order.filled_volume += volume
                 order.volume -= volume
-
                 volume = 0
             else:
+                self.store.pop()
                 self.total_vol -= order.volume
                 order.filled_volume += order.volume
                 volume -= order.volume
                 order.volume = 0
 
-            # updates order volume without altering time priority
-            if order.volume > 0:
-                self.store.push(order)
-
             filled_orders.append(order)
 
         # return excess volume and all (partially) filled orders
-        return volume, filled_orders, self.total_vol
+        return volume, filled_orders, round(self.total_vol, 6)
 
     def remove(self, order):
         self.store.remove(order)
@@ -123,9 +125,9 @@ class PriceLevel(object):
 
     @total_vol.setter
     def total_vol(self, val):
-        if val < 0 or val is None:
-            raise ValueError("Invalid vol")
-        self._total_vol = val
+        if round(val, 9) < 0 or val is None:
+            raise ValueError("Invalid vol {}".format(val))
+        self._total_vol = round(val, 9)
 
     def __len__(self):
         return len(self.store)

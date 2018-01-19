@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 class DataProcessor(object):
 
-    def __init__(self, data_dir, dates, exchange, data_format="raw"):
+    def __init__(self, data_dir, date, exchange, data_format="raw"):
         """Initializes a data processor over different data formats
 
         The data processor is a utility for parsing orderbook
@@ -26,8 +26,7 @@ class DataProcessor(object):
         self.data_dir = data_dir
         self.exchange = exchange
         self.data_format = data_format
-        self.dates = dates
-        self.date_index = 0
+        self.date = date
         self.line = 0
         self.time = 0
         self.fields = []
@@ -98,6 +97,7 @@ class DataProcessor(object):
             "time": data[2],
             "millis": data[3],
             "order_id": data[4],
+            "exec_opt": data[5],
             "evt_type": data[6],
             "symbol": data[7],
             "type": data[8],
@@ -145,28 +145,26 @@ class DataProcessor(object):
         except (IOError, OSError):
             print("Error opening / processing file")
         except StopIteration:
-            print("WE ARE HERE")
-            # get next available file after previous finishes or finish
-            if self.date_index < len(self.dates):
-                self.date_index += 1
-                self.initialize()
-            else:
-                self.finished = True
+            self.finished = True
 
     def parse_exchange_order(self, exchange):
-        if self.exchange == "GEMINI":
-            order = self.parse_gemini(next(self.f))
-            print(order)
-            if len(order["price"]) > 0:
-                return OrderEntry(order)
-        elif self.exchange == "GDAX":
-            raise ValueError("Invalid unimplemented")
-        elif self.exchange == "POLONIEX":
-            raise ValueError("Invalid unimplemented")
-        elif self.exchange == "KRAKEN":
-            raise ValueError("Invalid unimplemented")
-        else:
-            raise ValueError("Invalid exchange")
+        try:
+            if self.exchange == "GEMINI":
+                order = self.parse_gemini(next(self.f))
+                if len(order["price"]) == 0 and len(order["volume"]) == 0:
+                    return None
+                else:
+                    return OrderEntry(order)
+            elif self.exchange == "GDAX":
+                raise ValueError("Invalid unimplemented")
+            elif self.exchange == "POLONIEX":
+                raise ValueError("Invalid unimplemented")
+            elif self.exchange == "KRAKEN":
+                raise ValueError("Invalid unimplemented")
+            else:
+                raise ValueError("Invalid exchange")
+        except StopIteration:
+            self.finished = True
 
     def initialize(self):
         """Initializes file pointer to current date file
@@ -179,12 +177,12 @@ class DataProcessor(object):
             ValueError -- [description]
         """
         for file in os.scandir(self.data_dir):
-            if str(self.dates[self.date_index]) in file.name:
+            if str(self.date) in file.name:
                 self.f = self.process_file(
                     "{}/{}".format(self.data_dir, file.name))
                 if self.data_format == "raw":
                     self.fields = next(self.f)
-                    self.line += 1
+                    self.line = 1
                 elif self.data_format == "snapshot":
                     continue
                 else:
@@ -200,17 +198,30 @@ class OrderEntry(object):
         self.time = order["time"] if "time" in order else None
         self.millis = order["millis"] if "millis" in order else None
         self.order_id = order["order_id"] if "order_id" in order else None
+        self.exec_opt = order["exec_opt"] if "exec_opt" in order else None
         self.event_type = order["evt_type"] if "evt_type" in order else None
         self.symbol = order["symbol"] if "symbol" in order else None
         self.order_type = order["type"] if "type" in order else None
         self.side = order["side"] if "side" in order else None
-        self.price = float(order["price"]) if "price" in order else None
-        self.volume = float(order["volume"]) if "volume" in order else None
-        self.avg_price = float(
-            order["avg_price"]) if "avg_price" in order else None
+
+        try:
+            self.price = float(order["price"])
+        except Exception:
+            self.price = 0
+
+        try:
+            self.volume = float(order["volume"])
+        except Exception:
+            self.volume = 0
+
+        try:
+            self.avg_price = float(order["avg_price"])
+        except Exception:
+            self.avg_price = 0
 
     def __str__(self):
-        return "{}, {}, {}".format(self.side, self.price, self.volume)
+        from pprint import pformat
+        return pformat(vars(self), indent=4, width=1)
 
 
 def num(l):

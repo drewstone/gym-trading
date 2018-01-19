@@ -60,6 +60,9 @@ class Tree(object):
                 volume, fills, leftover_vol = pl.get(volume)
                 filled_orders += fills
 
+                if len(fills) == 0:
+                    raise ValueError("what the fuck: {}, {}, {}".format(volume, leftover_vol, pl.total_vol))
+
                 # check if we've executed entire price level
                 if leftover_vol == 0:
                     self.remove_price(curr)
@@ -71,8 +74,8 @@ class Tree(object):
         for order in filled_orders:
             # update tree volume
             self.volume -= order.filled_volume
-            if order.volume == 0:
-                del self.order_map[order.id]
+            if order.volume == 0 and order.id in self.order_map:
+                self.remove_order_by_id(order.id, cleanup=True)
 
         return volume, filled_orders
 
@@ -95,8 +98,12 @@ class Tree(object):
             self.min_price = price
 
     def remove_price(self, price):
-        self.price_tree.remove(price)
-        del self.price_map[price]
+        try:
+            self.price_tree.remove(price)
+            del self.price_map[price]
+        except Exception:
+            pass
+
 
         if self.max_price == price:
             try:
@@ -136,15 +143,19 @@ class Tree(object):
         else:
             # Quantity changed
             order.update_volume(volume)
+            price_level = self.price_map[order.price]
+            price_level.total_vol += order.volume - original_volume
             self.volume += order.volume - original_volume
 
-    def remove_order_by_id(self, id_num):
+    def remove_order_by_id(self, id_num, cleanup=False):
         order = self.order_map[id_num]
         self.volume -= order.volume
-        order.price_level.remove(order)
         if len(order.price_level) == 0:
             self.remove_price(order.price)
         del self.order_map[id_num]
+
+        if not cleanup:
+            order.price_level.remove(order)
 
     def max(self):
         return self.max_price

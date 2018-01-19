@@ -29,8 +29,9 @@ class OrderBook(OrderBookInterface):
         self.order_count = 0
         self.symbol = symbol
         self.delta = delta
+        self.last_datetime = None
 
-    def market(self, side, volume, timestamp=dt.now()):
+    def market(self, side, volume, timestamp=dt.now(), order_id=None):
         """Submit market orders to orderbook mechanism
 
         The market order function places a market order on
@@ -49,8 +50,10 @@ class OrderBook(OrderBookInterface):
             ValueError -- Invalid volume errors (no zero volume orders)
             ValueError -- Invalid side errors (only BID/ASK)
         """
+        if order_id is None:
+            order_id = self.order_count
         if volume == 0:
-            raise ValueError("Invalid volume")
+            raise ValueError("Invalid volume {}".format(volume))
 
         if side == "BID":
             purchase_type = "BUY"
@@ -59,26 +62,27 @@ class OrderBook(OrderBookInterface):
             purchase_type = "SELL"
             search_tree = self._bid_limits
         else:
-            raise ValueError("Invalid orderbook side")
+            raise ValueError("Invalid orderbook side {}".format(side))
 
         volume, filled_orders = search_tree.fill(0, volume, purchase_type)
 
         # log all filled orders
-        for o in filled_orders:
-            print("ooo : MARKET | sym = {}, order_id = {} side = {}, "
-                  "add_ts = {}, trade_ts = {}, price = {}, filled = {}".format(
-                      self.symbol,
-                      self.order_count,
-                      o.timestamp,
-                      timestamp,
-                      o.price,
-                      o.filled_volume))
+        # for o in filled_orders:
+        #     print("ooo : MARKET | sym = {}, side = {}, add_ts = {}"
+        #           "trade_ts = {}, price = {}, filled = {}".format(
+        #               self.symbol,
+        #               side,
+        #               o.timestamp,
+        #               timestamp,
+        #               o.price,
+        #               o.filled_volume))
 
         # refresh orderbook state
         self.refresh()
         self.order_count += 1
+        self.last_datetime = timestamp
 
-    def limit(self, side, price, volume, timestamp=dt.now(), cancel=False):
+    def limit(self, side, price, volume, timestamp=dt.now(), cancel=False, order_id=None):
         """Limit order/Marketable limit order function
 
         Allows for adding limit orders into the orderbook.
@@ -99,10 +103,12 @@ class OrderBook(OrderBookInterface):
             ValueError -- Invalid volume error
             ValueError -- Invalid price error
         """
+        if order_id is None:
+            order_id = self.order_count
         if volume == 0:
-            raise ValueError("Invalid volume")
+            raise ValueError("Invalid volume {}".format(volume))
         if price <= 0:
-            raise ValueError("Invalid price")
+            raise ValueError("Invalid price {}".format(price))
 
         if side == "BID":
             purchase_type = "BUY"
@@ -113,52 +119,59 @@ class OrderBook(OrderBookInterface):
             search_tree = self._bid_limits
             order_tree = self._ask_limits
         else:
-            raise ValueError("Invalid orderbook side")
+            raise ValueError("Invalid orderbook side {}".format(side))
 
         # attempt to execute marketable limit orders
         volume, filled_orders = search_tree.fill(price, volume, purchase_type)
 
         # log all filled orders
-        for o in filled_orders:
-            print("ooo : TRADE | sym = {}, side = {}, add_ts = {}, "
-                  "trade_ts = {}, price = {}, filled_vol = {}".format(
-                      self.symbol,
-                      side,
-                      o.timestamp,
-                      dt.now(),
-                      o.price,
-                      o.filled_volume))
+        # for o in filled_orders:
+        #     print("ooo : TRADE | sym = {}, side = {}, add_ts = {}, "
+        #           "trade_ts = {}, price = {}, filled_vol = {}".format(
+        #               self.symbol,
+        #               side,
+        #               o.timestamp,
+        #               dt.now(),
+        #               o.price,
+        #               o.filled_volume))
 
         # log newly placed limit order
         if volume > 0 and not cancel:
-            order_tree.insert_order(self.order_count, price, volume, timestamp)
-            print("ooo : LIMIT | sym = {}, order_id = {}, side = {}, "
-                  "ts = {}, price = {}, vol = {}".format(self.symbol,
-                                                         self.order_count,
-                                                         side,
-                                                         timestamp,
-                                                         price,
-                                                         volume))
+            order_tree.insert_order(order_id, price, volume, timestamp)
+            # print("ooo : LIMIT | sym = {}, order_id = {}, side = {}, "
+            #       "ts = {}, price = {}, vol = {}".format(self.symbol,
+            #                                              self.order_count,
+            #                                              side,
+            #                                              timestamp,
+            #                                              price,
+            #                                              volume))
 
         # refresh orderbook state
         self.refresh()
         self.order_count += 1
+        self.last_datetime = timestamp
 
-    def maker_or_cancel(self, side, price, volume, timestamp=dt.now()):
+    def maker_or_cancel(self, side, price, volume, timestamp=dt.now(), order_id=None):
+        if order_id is None:
+            order_id = self.order_count
+
         if volume == 0:
-            raise ValueError("Invalid volume")
+            raise ValueError("Invalid volume {}".format(volume))
 
         if side == "BID":
             bbool = self._bid_limits.max() >= price
         elif side == "ASK":
             bbool = self._ask_limits.min() <= price
         else:
-            raise ValueError("Invalid orderbook side")
+            raise ValueError("Invalid orderbook side {}".format(side))
 
         if bbool:
-            self.limit(side, price, volume, timestamp)
+            self.limit(side, price, volume, timestamp, False, order_id)
 
-    def immediate_or_cancel(self, side, price, volume, timestamp=dt.now()):
+    def immediate_or_cancel(self, side, price, volume, timestamp=dt.now(), order_id=None):
+        if order_id is None:
+            order_id = self.order_count
+
         if volume == 0:
             raise ValueError("Invalid volume")
 
@@ -167,10 +180,20 @@ class OrderBook(OrderBookInterface):
         elif side == "ASK":
             bbool = self._bid_limits.max() >= price
         else:
-            raise ValueError("Invalid orderbook side")
+            raise ValueError("Invalid orderbook side {}".format(side))
 
         if bbool:
-            self.limit(side, price, volume, timestamp, cancel=True)
+            self.limit(side, price, volume, timestamp, True, order_id)
+
+    def cancel(self, side, order_id):
+        if side == "BID":
+            order_tree = self._bid_limits
+        elif side == "ASK":
+            order_tree = self._ask_limits
+        else:
+            raise ValueError("Invalid orderbook side {}".format(side))
+
+        order_tree.remove_order_by_id(order_id)
 
     def refresh(self):
         """Refreshes state of orderbook included all features

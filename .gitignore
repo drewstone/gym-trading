@@ -2,3 +2,4 @@
 __pycache__
 data/**/*.csv
 .cache/
+nohup.out

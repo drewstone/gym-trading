@@ -43,7 +43,7 @@ class OrderBookInterface(object):
     @bid.setter
     def bid(self, val):
         if val > self.error_ask or val < 0 or val is None:
-            raise ValueError("Invalid bid")
+            raise ValueError("Invalid bid {}".format(val))
         self._bid = float(val)
 
     @property
@@ -53,7 +53,7 @@ class OrderBookInterface(object):
     @ask.setter
     def ask(self, val):
         if val > self.error_ask or val < 0 or val is None:
-            raise ValueError("Invalid ask")
+            raise ValueError("Invalid ask {}".format(val))
         self._ask = float(val)
 
     @property
@@ -63,7 +63,7 @@ class OrderBookInterface(object):
     @bid_vol.setter
     def bid_vol(self, val):
         if val < 0 or val is None:
-            raise ValueError("Invalid volume")
+            raise ValueError("Invalid volume {}".format(val))
         self._bid_vol = float(val)
 
     @property
@@ -73,7 +73,7 @@ class OrderBookInterface(object):
     @ask_vol.setter
     def ask_vol(self, val):
         if val < 0 or val is None:
-            raise ValueError("Invalid volume")
+            raise ValueError("Invalid volume {}".format(val))
         self._ask_vol = float(val)
 
     @property
@@ -91,6 +91,27 @@ class OrderBookInterface(object):
     @midquote.setter
     def midquote(self, val):
         self._midquote = val
+
+    def to_vec(self, threshold=10):
+        bid_prices, bid_vols = [], []
+        ask_prices, ask_vols = [], []
+
+        for inx, elt in enumerate(self._bid_limits.price_tree.items(reverse=True)):
+            bid_prices.append(elt[0])
+            bid_vols.append(elt[1].total_vol)
+
+        for inx, elt in enumerate(self._ask_limits.price_tree.items()):
+            ask_prices.append(elt[0])
+            ask_vols.append(elt[1].total_vol)
+
+        vector = []
+        for i in range(threshold):
+            vector.append(ask_prices[i])
+            vector.append(ask_vols[i])
+            vector.append(bid_prices[i])
+            vector.append(bid_vols[i])
+
+        return vector
 
     def __str__(self):
         value = "\nAsks\t\t\t\t\t\t\tBids"
