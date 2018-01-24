@@ -35,34 +35,31 @@ class DataProcessor(object):
 
         self.initialize()
 
-    def next_file_pointer(self):
-        pass
-
     def curr(self):
         return self.f
 
     def next(self, time_length=1):
         # self.line += time_length
         entries = []
-
         order = None
+
         while order is None:
-            order = self.parse_exchange_order(self.exchange)
+            order = self.parse_exchange_order(next(self.f))
 
         ts = datetime.strptime("{},{},{}".format(
             order.date, order.time, order.millis), "%Y-%m-%d,%H:%M:%S,%f")
 
         # set starting time on first line of data
-        if self.line == 1:
+        if self.time == 0:
             self.time = ts
 
-        if (self.leftover_order is not None):
+        if self.leftover_order is not None:
             entries.append(self.leftover_order)
 
         # retrieve all orders earlier than time horizon
         while ts < self.time + timedelta(seconds=time_length):
             entries.append(order)
-            order = self.parse_exchange_order(self.exchange)
+            order = self.parse_exchange_order(next(self.f))
             if order:
                 self.leftover_order = order
                 ts = datetime.strptime("{},{},{}".format(
@@ -92,18 +89,10 @@ class DataProcessor(object):
             data {array} -- Array of order information
         """
         return {
-            "event_id": data[0],
-            "date": data[1],
-            "time": data[2],
-            "millis": data[3],
-            "order_id": data[4],
-            "exec_opt": data[5],
-            "evt_type": data[6],
-            "symbol": data[7],
-            "type": data[8],
-            "side": data[9],
-            "price": data[10],
-            "volume": data[11],
+            "event_id": data[0], "date": data[1], "time": data[2],
+            "millis": data[3], "order_id": data[4], "exec_opt": data[5],
+            "evt_type": data[6], "symbol": data[7], "type": data[8],
+            "side": data[9], "price": data[10], "volume": data[11],
             "avg_price": data[15]
         } if self.data_format == "raw" else self.parse_snapshot(data)
 
@@ -147,24 +136,19 @@ class DataProcessor(object):
         except StopIteration:
             self.finished = True
 
-    def parse_exchange_order(self, exchange):
-        try:
-            if self.exchange == "GEMINI":
-                order = self.parse_gemini(next(self.f))
-                if len(order["price"]) == 0 and len(order["volume"]) == 0:
-                    return None
-                else:
-                    return OrderEntry(order)
-            elif self.exchange == "GDAX":
-                raise ValueError("Invalid unimplemented")
-            elif self.exchange == "POLONIEX":
-                raise ValueError("Invalid unimplemented")
-            elif self.exchange == "KRAKEN":
-                raise ValueError("Invalid unimplemented")
-            else:
-                raise ValueError("Invalid exchange")
-        except StopIteration:
-            self.finished = True
+    def parse_exchange_order(self, order_data):
+        if self.exchange == "GEMINI":
+            order = self.parse_gemini(order_data)
+            error_bool = len(order["price"]) == 0 and len(order["volume"]) == 0
+            return None if error_bool else OrderEntry(order)
+        elif self.exchange == "GDAX":
+            raise ValueError("Invalid unimplemented")
+        elif self.exchange == "POLONIEX":
+            raise ValueError("Invalid unimplemented")
+        elif self.exchange == "KRAKEN":
+            raise ValueError("Invalid unimplemented")
+        else:
+            raise ValueError("Invalid exchange")
 
     def initialize(self):
         """Initializes file pointer to current date file

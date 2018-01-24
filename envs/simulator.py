@@ -1,4 +1,4 @@
-from multiprocessing.dummy import Pool as ThreadPool 
+from multiprocessing.dummy import Pool as ThreadPool
 import pprint
 from datetime import datetime
 from ob.orderbook import OrderBook
@@ -55,57 +55,73 @@ class Simulator(object):
 
         return result
 
+    def process_order(self, order, date):
+        ts = datetime.strptime("{},{},{}".format(
+            order.date, order.time, order.millis),
+            "%Y-%m-%d,%H:%M:%S,%f")
+
+        # pp.pprint({
+        #     "event_id": order.event_id,
+        #     "date": order.date,
+        #     "time": order.time,
+        #     "millis": order.millis,
+        #     "order_id": order.order_id,
+        #     "exec_opt": order.exec_opt,
+        #     "event_type": order.event_type,
+        #     "symbol": order.symbol,
+        #     "order_type": order.order_type,
+        #     "side": order.side,
+        #     "timestamp": ts,
+        # })
+
+        side = "BID" if order.side == "buy" else "ASK"
+        if order.event_type == "Place" or order.event_type:
+            if order.exec_opt == "immediate-or-cancel":
+                self.orderbooks[date].immediate_or_cancel(
+                    side=side,
+                    price=order.price,
+                    volume=order.volume,
+                    timestamp=ts,
+                    order_id=order.order_id)
+            elif order.exec_opt == "maker-or-cancel":
+                self.orderbooks[date].maker_or_cancel(
+                    side=side,
+                    price=order.price,
+                    volume=order.volume,
+                    timestamp=ts,
+                    order_id=order.order_id)
+            else:
+                if order.order_type == "limit":
+                    self.orderbooks[date].limit(
+                        side=side,
+                        price=order.price,
+                        volume=order.volume,
+                        timestamp=ts,
+                        order_id=order.order_id)
+                elif order.order_type == "market":
+                    self.orderbooks[date].market(
+                        side=side,
+                        volume=order.volume,
+                        timestamp=ts,
+                        order_id=order.order_id)
+        elif order.event_type == "Cancel":
+            self.orderbooks[date].cancel(
+                side=side,
+                order_id=order.order_id)
+
+        elif order.event_type == "FILL":
+            pass
+
     def setup_orderbook(self, date):
         data = self.data_procs[date].next()
         order = data[0]
 
+        self.process_order(order, date)
         while order.event_type == "Initial":
-            ts = datetime.strptime("{},{},{}".format(
-                order.date, order.time, order.millis),
-                "%Y-%m-%d,%H:%M:%S,%f")
-
-            side = "BID" if order.side == "buy" else "ASK"
-            if order.event_type == "Place" or order.event_type:
-                if order.exec_opt == "immediate-or-cancel":
-                    self.orderbooks[date].immediate_or_cancel(
-                        side=side,
-                        price=order.price,
-                        volume=order.volume,
-                        timestamp=ts,
-                        order_id=order.order_id)
-                elif order.exec_opt == "maker-or-cancel":
-                    self.orderbooks[date].maker_or_cancel(
-                        side=side,
-                        price=order.price,
-                        volume=order.volume,
-                        timestamp=ts,
-                        order_id=order.order_id)
-                else:
-                    if order.order_type == "limit":
-                        self.orderbooks[date].limit(
-                            side=side,
-                            price=order.price,
-                            volume=order.volume,
-                            timestamp=ts,
-                            order_id=order.order_id)
-                    elif order.order_type == "market":
-                        self.orderbooks[date].market(
-                            side=side,
-                            price=order.price,
-                            volume=order.volume,
-                            timestamp=ts,
-                            order_id=order.order_id)
-            elif order.event_type == "Cancel":
-                self.orderbooks[date].cancel(
-                    side=side,
-                    order_id=order.order_id)
-
-            elif order.event_type == "FILL":
-                pass
-
             # pull next order
             data = self.data_procs[date].next()
             order = data[0]
+            self.process_order(order, date)
 
         return self.orderbooks[date]
 
@@ -116,48 +132,9 @@ class Simulator(object):
             for inx, order in enumerate(data):
                 if not order:
                     continue
+                else:
+                    self.process_order(order, date)
 
-                ts = datetime.strptime("{},{},{}".format(
-                    order.date, order.time, order.millis),
-                    "%Y-%m-%d,%H:%M:%S,%f")
-
-                side = "BID" if order.side == "buy" else "ASK"
-                if order.event_type == "Place" or order.event_type:
-                    if order.exec_opt == "immediate-or-cancel":
-                        self.orderbooks[date].immediate_or_cancel(
-                            side=side,
-                            price=order.price,
-                            volume=order.volume,
-                            timestamp=ts,
-                            order_id=order.order_id)
-                    elif order.exec_opt == "maker-or-cancel":
-                        self.orderbooks[date].maker_or_cancel(
-                            side=side,
-                            price=order.price,
-                            volume=order.volume,
-                            timestamp=ts,
-                            order_id=order.order_id)
-                    else:
-                        if order.order_type == "limit":
-                            self.orderbooks[date].limit(
-                                side=side,
-                                price=order.price,
-                                volume=order.volume,
-                                timestamp=ts,
-                                order_id=order.order_id)
-                        elif order.order_type == "market":
-                            self.orderbooks[date].market(
-                                side=side,
-                                volume=order.volume,
-                                timestamp=ts,
-                                order_id=order.order_id)
-                elif order.event_type == "Cancel":
-                    self.orderbooks[date].cancel(
-                        side=side,
-                        order_id=order.order_id)
-
-                elif order.event_type == "FILL":
-                    pass
         elif self.data_format == "snapshot":
             data = self.data_procs[date].next(time_length)
 

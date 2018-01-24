@@ -39,12 +39,12 @@ if __name__ == '__main__':
             f.write("{},{}\n".format(",".join(ob_str),
                                      orderbooks[date].last_datetime))
 
-            while (orderbooks[date].last_datetime < cutoff_timestamp(date_strs[inx])
-                   and not sim.data_procs[date].finished):
-                orderbooks[date] = sim.step(
-                    date=date,
-                    time_length=3)
-                ob_str = [str(v) for v in orderbooks[date].to_vec()]
-                f.write("{},{}\n".format(",".join(ob_str),
-                                         orderbooks[date].last_datetime))
+            while True:
+                try:
+                    orderbooks[date] = sim.step(date=date, time_length=3)
+                    ob_str = [str(v) for v in orderbooks[date].to_vec()]
+                    f.write("{},{}\n".format(",".join(ob_str),
+                                             orderbooks[date].last_datetime))
+                except StopIteration:
+                    break
         f.close()
