@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
             while True:
                 try:
-                    orderbooks[date] = sim.step(date=date, time_length=3)
+                    orderbooks[date] = sim.next(date=date, time_length=3)
                     ob_str = [str(v) for v in orderbooks[date].to_vec()]
                     f.write("{},{}\n".format(",".join(ob_str),
                                              orderbooks[date].last_datetime))

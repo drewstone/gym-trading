@@ -1,5 +1,6 @@
 from multiprocessing.dummy import Pool as ThreadPool
 import pprint
+import copy
 from datetime import datetime
 from ob.orderbook import OrderBook
 from ob.processor import DataProcessor
@@ -32,6 +33,7 @@ class Simulator(object):
         self.data_procs = {}
         self.orderbooks = {}
 
+        # initialize data processors and books for each day
         for date in self.dates:
             self.data_procs[date] = DataProcessor(
                 data_dir=options["data_dir"],
@@ -42,6 +44,10 @@ class Simulator(object):
             self.orderbooks[date] = OrderBook(
                 symbol=options["symbol"],
                 delta=options["delta"])
+
+        # set current time values
+        self.curr_date = self.dates[0]
+        self.curr_time = self.data_procs[self.curr_date].time
 
     def initialize_raw(self):
         pool = ThreadPool(4)
@@ -112,46 +118,54 @@ class Simulator(object):
         elif order.event_type == "FILL":
             pass
 
-    def setup_orderbook(self, date):
-        data = self.data_procs[date].next()
+    def setup_orderbook(self):
+        data = self.data_procs[self.curr_date].next()
         order = data[0]
 
-        self.process_order(order, date)
+        self.process_order(order, self.curr_date)
         while order.event_type == "Initial":
             # pull next order
-            data = self.data_procs[date].next()
+            data = self.data_procs[self.curr_date].next()
             order = data[0]
-            self.process_order(order, date)
+            self.process_order(order, self.curr_date)
 
-        return self.orderbooks[date]
+        return self.orderbooks[self.curr_date]
 
-    def step(self, date, time_length=1):
+    def next(self, time_length=1):
         if self.data_format == "raw":
-            data = self.data_procs[date].next(time_length)
+            data = self.data_procs[self.curr_date].next(time_length)
 
             for inx, order in enumerate(data):
                 if not order:
                     continue
                 else:
-                    self.process_order(order, date)
+                    self.process_order(order, self.curr_date)
 
         elif self.data_format == "snapshot":
-            data = self.data_procs[date].next(time_length)
+            data = self.data_procs[self.curr_date].next(time_length)
 
             # clear orderbook for new snapshot
             # TODO: leverage thrown away information
-            self.orderbooks[date].clear()
+            self.orderbooks[self.curr_date].clear()
 
             ask_prices, ask_volumes, bid_prices, bid_volumes, timestamp = data
-            ts = datetime.strptime("{}".format(
+            ts = self.curr_datetime.strptime("{}".format(
                 timestamp), "%Y-%m-%d %H:%M:%S")
 
             for inx, bid in enumerate(bid_prices):
-                self.orderbooks[date].limit("BID", bid, bid_volumes[inx], ts)
+                self.orderbooks[self.curr_date].limit(
+                    "BID", bid, bid_volumes[inx], ts)
 
             for inx, ask in enumerate(ask_prices):
-                self.orderbooks[date].limit("ASK", ask, ask_volumes[inx], ts)
+                self.orderbooks[self.curr_date].limit(
+                    "ASK", ask, ask_volumes[inx], ts)
         else:
             raise ValueError("Invalid data format")
 
-        return self.orderbooks[date]
+        return self.orderbooks[self.curr_date]
+
+    def value(self, side, volume):
+        cloned_book = copy.deepcopy(self.orderbooks[self.curr_date])
+        filled_orders = cloned_book.market(side, volume, self.curr_time)
+        return sum(list(map(
+            lambda order: order.filled_volume * order.price, filled_orders)))

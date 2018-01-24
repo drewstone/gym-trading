@@ -81,6 +81,7 @@ class OrderBook(OrderBookInterface):
         self.refresh()
         self.order_count += 1
         self.last_datetime = timestamp
+        return filled_orders
 
     def limit(self, side, price, volume, timestamp=dt.now(), cancel=False, order_id=None):
         """Limit order/Marketable limit order function
@@ -150,6 +151,7 @@ class OrderBook(OrderBookInterface):
         self.refresh()
         self.order_count += 1
         self.last_datetime = timestamp
+        return filled_orders
 
     def maker_or_cancel(self, side, price, volume, timestamp=dt.now(), order_id=None):
         if order_id is None:
@@ -166,7 +168,7 @@ class OrderBook(OrderBookInterface):
             raise ValueError("Invalid orderbook side {}".format(side))
 
         if bbool:
-            self.limit(side, price, volume, timestamp, False, order_id)
+            return self.limit(side, price, volume, timestamp, False, order_id)
 
     def immediate_or_cancel(self, side, price, volume, timestamp=dt.now(), order_id=None):
         if order_id is None:
@@ -183,7 +185,7 @@ class OrderBook(OrderBookInterface):
             raise ValueError("Invalid orderbook side {}".format(side))
 
         if bbool:
-            self.limit(side, price, volume, timestamp, True, order_id)
+            return self.limit(side, price, volume, timestamp, True, order_id)
 
     def cancel(self, side, order_id):
         if side == "BID":
