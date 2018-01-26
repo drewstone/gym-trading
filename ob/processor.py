@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 class DataProcessor(object):
 
-    def __init__(self, data_dir, date, exchange, data_format="raw"):
+    def __init__(self, file_str, exchange, data_format="raw"):
         """Initializes a data processor over different data formats
 
         The data processor is a utility for parsing orderbook
@@ -23,49 +23,53 @@ class DataProcessor(object):
                                     (default: {"raw"})
         """
         super(DataProcessor, self).__init__()
-        self.data_dir = data_dir
         self.exchange = exchange
         self.data_format = data_format
-        self.date = date
-        self.line = 0
         self.time = 0
         self.fields = []
         self.leftover_order = None
         self.finished = False
 
-        self.initialize()
+        self.initialize(file_str)
 
-    def curr(self):
-        return self.f
-
-    def next(self, time_length=1):
+    def next(self, time_length=None):
         # self.line += time_length
         entries = []
         order = None
 
-        while order is None:
-            order = self.parse_exchange_order(next(self.f))
-
-        ts = datetime.strptime("{},{},{}".format(
-            order.date, order.time, order.millis), "%Y-%m-%d,%H:%M:%S,%f")
-
         # set starting time on first line of data
         if self.time == 0:
+            while order is None:
+                order = self.parse_exchange_order(next(self.f))
+            ts = datetime.strptime("{},{},{}".format(
+                order.date, order.time, order.millis), "%Y-%m-%d,%H:%M:%S,%f")
             self.time = ts
+            entries.append(order)
 
         if self.leftover_order is not None:
             entries.append(self.leftover_order)
 
-        # retrieve all orders earlier than time horizon
-        while ts < self.time + timedelta(seconds=time_length):
+        if time_length is None and self.time != 0:
+            while order is None:
+                order = self.parse_exchange_order(next(self.f))
+            ts = datetime.strptime("{},{},{}".format(
+                order.date, order.time, order.millis), "%Y-%m-%d,%H:%M:%S,%f")
+            self.time = ts
             entries.append(order)
-            order = self.parse_exchange_order(next(self.f))
-            if order:
-                self.leftover_order = order
-                ts = datetime.strptime("{},{},{}".format(
-                    order.date, order.time, order.millis),
-                    "%Y-%m-%d,%H:%M:%S,%f")
-            self.line += 1
+        else:
+            # retrieve all orders earlier than time horizon
+            while ts < self.time + timedelta(seconds=time_length):
+                try:
+                    order = self.parse_exchange_order(next(self.f))
+                    if order is not None:
+                        entries.append(order)
+                        self.leftover_order = order
+                        ts = datetime.strptime("{},{},{}".format(
+                            order.date, order.time, order.millis),
+                            "%Y-%m-%d,%H:%M:%S,%f")
+                        self.time = ts
+                except StopIteration:
+                    break
 
         self.time = ts
         return entries
@@ -127,14 +131,9 @@ class DataProcessor(object):
         Yields:
             {csvreader} -- a generator/iterator over a csv file
         """
-        try:
-            with open(path) as file_handler:
-                while True:
-                    yield next(csv.reader(file_handler, delimiter=","))
-        except (IOError, OSError):
-            print("Error opening / processing file")
-        except StopIteration:
-            self.finished = True
+        with open(path) as file_handler:
+            while True:
+                yield next(csv.reader(file_handler, delimiter=","))
 
     def parse_exchange_order(self, order_data):
         if self.exchange == "GEMINI":
@@ -150,7 +149,7 @@ class DataProcessor(object):
         else:
             raise ValueError("Invalid exchange")
 
-    def initialize(self):
+    def initialize(self, file_path):
         """Initializes file pointer to current date file
 
         Iterates over all dates and sets the file pointer
@@ -160,17 +159,14 @@ class DataProcessor(object):
         Raises:
             ValueError -- [description]
         """
-        for file in os.scandir(self.data_dir):
-            if str(self.date) in file.name:
-                self.f = self.process_file(
-                    "{}/{}".format(self.data_dir, file.name))
-                if self.data_format == "raw":
-                    self.fields = next(self.f)
-                    self.line = 1
-                elif self.data_format == "snapshot":
-                    continue
-                else:
-                    raise ValueError("Invalid data format")
+        self.f = self.process_file(file_path)
+        if self.data_format == "raw":
+            self.fields = next(self.f)
+            self.line = 1
+        elif self.data_format == "snapshot":
+            return
+        else:
+            raise ValueError("Invalid data format")
 
 
 class OrderEntry(object):
