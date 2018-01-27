@@ -38,11 +38,15 @@ class Simulator(object):
         self.curr_date = self.date_range[0]
         self.final_date = self.date_range[1]
         self.last_time = 0
+        self.finished = False
 
         # initialize data processors and books for each day
         self.data_path = lambda date: "{}/{}_order_book_{}.csv".format(
             options["data_dir"], options["symbol"], date)
         self.set_data_processors()
+
+    def is_finished(self):
+        return self.finished
 
     def set_data_processors(self):
 
@@ -53,16 +57,16 @@ class Simulator(object):
                 exchange=self.exchange,
                 data_format=self.data_format)
 
-            self.orderbook = self.setup_orderbook()
-        else:
-            self.current_processor = self.next_processor
-
-        # if we are on the last date, simply update current processor pointer
-        if self.curr_date == self.final_date:
-            self.current_processor = self.next_processor
-        else:
             self.next_processor = self.fast_forward_processor()
-            self.curr_date += 1
+            self.orderbook = self.setup_orderbook()
+        elif self.final_date == self.curr_date:
+            self.current_processor = self.next_processor
+            self.next_processor = None
+        else:
+            self.current_processor = self.next_processor
+            self.next_processor = self.fast_forward_processor()
+        
+        self.curr_date += 1
 
     def fast_forward_processor(self):
         processor = DataProcessor(
@@ -93,38 +97,42 @@ class Simulator(object):
 
         return self.orderbook
 
-    def next(self, time_length=1):
-        if self.data_format == "raw":
+    def next(self, time_length=None):
+        try:
             data = self.current_processor.next(time_length)
+        except StopIteration:
+            if self.next_processor is None:
+                self.finished = True
+                return
 
+            self.set_data_processors()
+            return self.next(time_length)
+
+        if self.data_format == "raw":
             for inx, order in enumerate(data):
                 self.process_order(order, self.curr_date)
 
         elif self.data_format == "snapshot":
-            data = self.current_processor.next(time_length)
-
-            # clear orderbook for new snapshot
-            # TODO: leverage thrown away information
-            self.orderbooks[self.curr_date].clear()
+            self.orderbook.clear()
 
             ask_prices, ask_volumes, bid_prices, bid_volumes, timestamp = data
             ts = self.curr_datetime.strptime("{}".format(
                 timestamp), "%Y-%m-%d %H:%M:%S")
 
             for inx, bid in enumerate(bid_prices):
-                self.orderbooks[self.curr_date].limit(
+                self.orderbook.limit(
                     "BID", bid, bid_volumes[inx], ts)
 
             for inx, ask in enumerate(ask_prices):
-                self.orderbooks[self.curr_date].limit(
+                self.orderbook.limit(
                     "ASK", ask, ask_volumes[inx], ts)
         else:
             raise ValueError("Invalid data format")
 
-        return self.orderbooks[self.curr_date]
+        return self.orderbook
 
     def value(self, side, volume):
-        cloned_book = copy.deepcopy(self.orderbooks[self.curr_date])
+        cloned_book = copy.deepcopy(self.orderbook)
         filled_orders = cloned_book.market(side, volume, self.curr_time)
         return sum(list(map(
             lambda order: order.filled_volume * order.price, filled_orders)))

@@ -32,46 +32,48 @@ class DataProcessor(object):
 
         self.initialize(file_str)
 
+    def get_next_order(self):
+        order = None
+        ts = None
+        while order is None:
+            order = self.parse_exchange_order(next(self.f))
+            if order is None:
+                continue
+            ts = datetime.strptime("{},{},{}".format(
+                order.date, order.time, order.millis), "%Y-%m-%d,%H:%M:%S,%f")
+
+        return order, ts
+
     def next(self, time_length=None):
-        # self.line += time_length
         entries = []
         order = None
 
         # set starting time on first line of data
         if self.time == 0:
-            while order is None:
-                order = self.parse_exchange_order(next(self.f))
-            ts = datetime.strptime("{},{},{}".format(
-                order.date, order.time, order.millis), "%Y-%m-%d,%H:%M:%S,%f")
+            order, ts = self.get_next_order()
             self.time = ts
             entries.append(order)
 
         if self.leftover_order is not None:
             entries.append(self.leftover_order)
+            self.leftover_order = None
 
         if time_length is None and self.time != 0:
-            while order is None:
-                order = self.parse_exchange_order(next(self.f))
-            ts = datetime.strptime("{},{},{}".format(
-                order.date, order.time, order.millis), "%Y-%m-%d,%H:%M:%S,%f")
+            order, ts = self.get_next_order()
             self.time = ts
             entries.append(order)
         else:
             # retrieve all orders earlier than time horizon
-            while ts < self.time + timedelta(seconds=time_length):
-                try:
-                    order = self.parse_exchange_order(next(self.f))
-                    if order is not None:
-                        entries.append(order)
-                        self.leftover_order = order
-                        ts = datetime.strptime("{},{},{}".format(
-                            order.date, order.time, order.millis),
-                            "%Y-%m-%d,%H:%M:%S,%f")
-                        self.time = ts
-                except StopIteration:
-                    break
+            target_time = self.time + timedelta(seconds=time_length)
+            while self.time <= target_time:
+                order, ts = self.get_next_order()
+                if ts > target_time:
+                    self.leftover_order = order
+                else:
+                    entries.append(order)
 
-        self.time = ts
+                self.time = ts
+
         return entries
 
     def parse_gemini(self, data):
