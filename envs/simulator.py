@@ -1,4 +1,3 @@
-from multiprocessing.dummy import Pool as ThreadPool
 import pprint
 import copy
 from datetime import datetime
