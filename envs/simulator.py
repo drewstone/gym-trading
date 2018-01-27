@@ -3,7 +3,7 @@ import pprint
 import copy
 from datetime import datetime
 from ob.orderbook import OrderBook
-from ob.processor import DataProcessor
+from ob.processor import DataProcessor, OrderEntry
 pp = pprint.PrettyPrinter(indent=4)
 
 
@@ -65,7 +65,7 @@ class Simulator(object):
         else:
             self.current_processor = self.next_processor
             self.next_processor = self.fast_forward_processor()
-        
+
         self.curr_date += 1
 
     def fast_forward_processor(self):
@@ -89,11 +89,11 @@ class Simulator(object):
 
         order = self.current_processor.next()[0]
 
-        self.process_order(order, self.curr_date)
+        self.process_order(order)
         while order.event_type == "Initial":
             # pull next order
             order = self.current_processor.next()[0]
-            self.process_order(order, self.curr_date)
+            self.process_order(order)
 
         return self.orderbook
 
@@ -110,7 +110,7 @@ class Simulator(object):
 
         if self.data_format == "raw":
             for inx, order in enumerate(data):
-                self.process_order(order, self.curr_date)
+                self.process_order(order)
 
         elif self.data_format == "snapshot":
             self.orderbook.clear()
@@ -137,10 +137,13 @@ class Simulator(object):
         return sum(list(map(
             lambda order: order.filled_volume * order.price, filled_orders)))
 
-    def process_order(self, order, date):
-        ts = datetime.strptime("{},{},{}".format(
-            order.date, order.time, order.millis),
-            "%Y-%m-%d,%H:%M:%S,%f")
+    def process_order(self, order):
+        if order.date and order.time and order.millis:
+            ts = datetime.strptime("{},{},{}".format(
+                order.date, order.time, order.millis),
+                "%Y-%m-%d,%H:%M:%S,%f")
+        else:
+            ts = self.time
 
         # pp.pprint({
         #     "event_id": order.event_id,
@@ -193,3 +196,12 @@ class Simulator(object):
 
         elif order.event_type == "FILL":
             pass
+
+    def place(self, order_type, side, price, volume):
+        order = OrderEntry({
+            "evt_type": "Place",
+            "price": price,
+            "side": side,
+            "volume": volume,
+            "type": order_type})
+        self.process_order(order)

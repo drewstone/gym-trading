@@ -144,7 +144,7 @@ class Order(object):
     timestamp for comparison behavior
     """
 
-    def __init__(self, id_num, price, volume, timestamp, price_level):
+    def __init__(self, id_num, price, volume, timestamp, price_level=None):
         super(Order, self).__init__()
         self._id = id_num
         self._price = price
@@ -152,8 +152,9 @@ class Order(object):
         self._filled_volume = 0
         self._timestamp = timestamp
 
-        price_level.push(self)
-        self._price_level = price_level
+        if price_level:
+            price_level.push(self)
+            self._price_level = price_level
 
     def update_volume(self, volume):
         self.price_level.remove(self)
